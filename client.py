@@ -90,6 +90,32 @@ def risposte(q):
     b_button.config(text=q[q.find('B=')+2::])
     b_button.place(x=550,y=450, width=100, height=30)
 
+
+def game_start():
+    #grafica
+    window=tk.Tk()
+    window.title("Il Milionario")
+    window.geometry("1000x800")
+    window.config(bg="slateBlue")
+    window.resizable(False,False)
+    
+    label_domanda = tk.Label(window, text="Domanda", font=("Perpetua",35,"bold"), bg="medium slate blue", relief="groove")
+    label_domanda.place(x=100, y=250, width=800, height=100)
+    
+    
+    btn1 = tk.Button(window, bg="#1e9856", text="RISPOSTA 1", font=("Elephant",30,"bold"))
+    btn1.place(x=50, y=570, width=400, height=80)
+    
+    btn2 = tk.Button(window, bg="#1e9856", text="RISPOSTA 2", font=("Elephant",30,"bold"))
+    btn2.place(x=550, y=570, width=400, height=80)
+    
+    btn3 = tk.Button(window, bg="#1e9856", text="RISPOSTA 3", font=("Elephant",30,"bold"))
+    btn3.place(x=50, y=680, width=400, height=80)
+    
+    btn4 = tk.Button(window, bg="#1e9856", text="RISPOSTA 4", font=("Elephant",30,"bold"))
+    btn4.place(x=550, y=680, width=400, height=80)
+    
+
 def disable_all():
     """disabilita tutti bottoni"""
     disable_buttons()

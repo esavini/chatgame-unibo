@@ -6,6 +6,8 @@ Created on Mon Jun 14 21:06:35 2021
 """
 
 import tkinter as tk
+from ttkthemes import ThemedTk
+import ttkthemes
 import socket
 import time
 from time import sleep
@@ -21,16 +23,26 @@ def game_start():
     window.config(bg="slateBlue")
     window.resizable(False,False)
     
+    label_domanda = tk.Label(window, text="Domanda", font=("Perpetua",35,"bold"), bg="medium slate blue", relief="groove")
+    label_domanda.place(x=100, y=250, width=800, height=100)
+    
+    
     btn1 = tk.Button(window, bg="#1e9856", text="RISPOSTA 1", font=("Elephant",30,"bold"), command=lambda : start_button())
-    btn1.place(x=50, y=270, width=400, height=80)
+    btn1.place(x=50, y=570, width=400, height=80)
     
     btn2 = tk.Button(window, bg="#1e9856", text="RISPOSTA 2", font=("Elephant",30,"bold"), command=lambda : start_button())
-    btn2.place(x=550, y=270, width=400, height=80)
+    btn2.place(x=550, y=570, width=400, height=80)
+    
+    btn3 = tk.Button(window, bg="#1e9856", text="RISPOSTA 3", font=("Elephant",30,"bold"), command=lambda : start_button())
+    btn3.place(x=50, y=680, width=400, height=80)
+    
+    btn4 = tk.Button(window, bg="#1e9856", text="RISPOSTA 4", font=("Elephant",30,"bold"), command=lambda : start_button())
+    btn4.place(x=550, y=680, width=400, height=80)
     
 
 def start_button():
     '''funzione per avviare il gioco e con esso il tempo'''
-    broadcast("Game iniziato")
+    broadcast("Game started")
     close_window(window)
     game_start()
 
@@ -91,6 +103,7 @@ def close_window(window):
 
 if __name__ == '__main__':
     #grafica
+
     window=tk.Tk()
     window.title("Server")
     window.geometry("400x500")
