@@ -4,9 +4,6 @@ import socket
 class SocketManager:
     """A class that helps managing the socket."""
 
-    BUFFER_SIZE = 1024
-    """The size of the buffer."""
-
     LISTENING_PORT = 55123
     """The port of the server."""
 

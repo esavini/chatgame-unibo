@@ -1,4 +1,4 @@
-import thread
+import threading
 
 from src.common.net.SocketManager import SocketManager
 
@@ -6,21 +6,15 @@ from src.common.net.SocketManager import SocketManager
 class ServerSocketManager(SocketManager):
     """Server side specific implementation of the socket manager."""
 
-    MAX_CONNECTIONS = 10
-
     def __init__(self):
         super().__init__()
+        self.thread = None
 
-    def spawn_client_manager(self, manager):
-        "# self.__socket."
-        thread.start_new_thread(manager, self.__socket)
+    def start_client_manager(self, manager):
+        """Handles incoming connections."""
+        self.thread = threading.Thread(target=manager, args=(self.__socket,))
+        self.thread.start()
 
     def start_listening(self):
         """Start the server listening for new connections."""
         self.__socket.listen()
-
-    def broadcast(self):
-        """Broadcast to all clients a message."""
-
-    def send(self, client):
-        self.__socket.send()
