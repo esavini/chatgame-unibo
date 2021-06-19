@@ -78,9 +78,123 @@ class Timer:
         self.termina = True
         return ""
 
-
     def getTime(self):
         return '{:02d}:{:02d}'.format(self.minutes, self.seconds)
+
+
+class GameWindow:
+    def __init__(self, username):
+        self.player = Player(username)
+        self.finestra.title("CHATGAME")
+        self.finestra.geometry("1300x800")
+        self.finestra.config(bg="#4181C0")
+
+        self.timer = 0
+        self.timeLeft = tk.StringVar()
+
+        # label timer
+        self.labelTimer = tk.Label(finestra, textvariable=timeLeft, font=("Perpetua", "40", "bold"), bg="#4181C0",
+                                   borderwidth=2, relief="solid")
+        self.labelTimer.place(x=50, y=50, height=50, width=160)
+
+        # label question
+        self.labelQuestion = tk.Label(finestra, text="in attesa di una domanda...", font=("Perpetua", 30, "bold"),
+                                      bg="medium slate blue", relief="groove")
+        self.labelQuestion.place(x=100, y=250, width=800, height=100)
+
+        # label leaderboard
+        self.labelLeaderboard = tk.Label(finestra, bg="#4181C0", borderwidth=20, text="Leaderboard:",
+                                         font=("Perpetua", 18, "bold"))
+        self.labelLeaderboard.place(x=1000, y=20, height=50, width=300)
+
+        # leaderboard
+        self.lstLeaderboard = tk.Listbox(finestra, bg="#4181C0", font=("Perpetua", 15, "bold"))
+        self.lstLeaderboard.place(x=1000, y=70, width=300, height=230)
+        updatePoints(punteggio)
+
+        # listbox message
+        self.messageList = tk.Listbox(finestra, bg="#F2F2F2", borderwidth=0, highlightthickness=0, font="30")
+        self.messageList.grid(row=1, padx=(100, 100))
+        self.messageList.place(x=1000, y=300, height=440, width=300)
+
+        # textbox sendMessage
+        self.msgTextBox = tk.Entry(finestra, borderwidth=0, font="30")
+        self.msgTextBox.place(x=1000, y=740, height=50, width=250)
+
+        # button sendMessage
+        self.sendMsgButton = tk.Button(finestra, text="SEND", borderwidth=0, font="'bold'",
+                                       command=lambda: addChatMessage(msgTextBox.get()))
+        self.sendMsgButton.place(x=1250, y=740, height=50, width=50)
+
+        # answer buttons
+        self.btn1 = tk.Button(finestra, bg="#1e9856", text="RISPOSTA 1", font=("Elephant", 30, "bold"))
+        self.btn1.place(x=50, y=570, width=400, height=80)
+
+        self.btn2 = tk.Button(finestra, bg="#1e9856", text="RISPOSTA 2", font=("Elephant", 30, "bold"))
+        self.btn2.place(x=550, y=570, width=400, height=80)
+
+        self.btn3 = tk.Button(finestra, bg="#1e9856", text="RISPOSTA 3", font=("Elephant", 30, "bold"))
+        self.btn3.place(x=300, y=680, width=400, height=80)
+        disableButtons()
+
+    def disableButtons(self):
+        self.btn1['state'] = tk.DISABLED
+        self.btn2['state'] = tk.DISABLED
+        self.btn3['state'] = tk.DISABLED
+
+    def enableButtons(self):
+        self.btn1['state'] = tk.NORMAL
+        self.btn2['state'] = tk.NORMAL
+        self.btn3['state'] = tk.NORMAL
+
+    def setTimeLeft(self, time):
+        self.timeLeft = time
+
+    def getTimeLeft(self):
+        return self.timeLeft
+
+    def setQuestion(self, question):
+        self.labelQuestion.config(text=question["question"])
+
+        self.btn1.config(text=question["answers"][0])
+        self.btn2.config(text=question["answers"][1])
+        self.btn3.config(text=question["answers"][2])
+
+        seconds = int(question["time"])
+        minutes = int(seconds / 60)
+        seconds = int(seconds % 60)
+        self.timer = Timer(minutes, seconds)
+        self.timer.start()
+
+    def updatePoints(self, punteggi):
+        self.lstLeaderboard.delete(first=0, last=tk.END)
+        counter = 1
+
+        if punteggi["you"] > self.player.points:
+            self.player.points = punteggi["you"]
+            addChatMessage("correct answer")
+        else:
+            addChatMessage("wrong answer")
+
+        for player in punteggi:
+            name = player["name"]
+            point = player["points"]
+
+            self.lstLeaderboard.insert(counter, name + " : " + str(point))
+            counter += 1
+
+    def addChatMessage(self, msg):
+        if msg == "":
+            return
+
+        self.messageList.insert(messageList.size() + 1, "ME: " + msg)
+        self.finestra.update_idletasks()
+        self.msgTextBox.delete(0, tk.END)
+        sendMessageToServer(msg)
+
+    def addExternalChatMessage(self, messageObject):
+        self.messageList.insert(messageList.size() + 1, messaggio["sender"] + ": " + messaggio["msg"])
+        self.finestra.update_idletasks()
 
 
 class Player:
@@ -135,9 +249,6 @@ def setQuestion(question):
     t.start()
 
 
-
-
-
 punteggio = [
     {
         "name": "ruspa",
@@ -165,6 +276,8 @@ messaggio = {
     "sender": "Azel con la mamma troia"
 }
 
+
+
 def game_start():
     #GRAFICA
     finestra.title("CHATGAME")
@@ -173,7 +286,6 @@ def game_start():
 
     global timeLeft
     timeLeft = tk.StringVar()
-    point = 0
 
     labelTimer = tk.Label(finestra, textvariable=timeLeft, font=("Perpetua", "40", "bold"), bg="#4181C0", borderwidth=2, relief="solid")
     labelTimer.place(x=50, y=50, height=50, width=160)
@@ -292,7 +404,7 @@ def gotoIpMenu():
         global p
         p = Player(entry_host.get())
         sendUsernameToServer(p.username)
-        
+
         istruzioni.config(text="INSERISCI IP SERVER")
         entry_host.delete(0, tk.END)
         button_host.config(text="START", command=destroyMenu)
