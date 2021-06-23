@@ -4,50 +4,24 @@ Created on Mon Jun 14 21:06:35 2021
 
 @author: Monta
 """
-
-import tkinter as tk
-from ttkthemes import ThemedTk
-import ttkthemes
+import json
 import socket
-import time
-from time import sleep
 import threading
-import random
+import tkinter as tk
 
 
 def game_start():
     # grafica
     window = tk.Tk()
-    window.title("Il Milionario")
+    window.title("CHATGAME")
     window.geometry("1000x800")
     window.config(bg="slateBlue")
     window.resizable(False, False)
-
-    label_domanda = tk.Label(window, text="Domanda", font=("Perpetua", 35, "bold"), bg="medium slate blue",
-                             relief="groove")
-    label_domanda.place(x=100, y=250, width=800, height=100)
-
-    btn1 = tk.Button(window, bg="#1e9856", text="RISPOSTA 1", font=("Elephant", 30, "bold"),
-                     command=lambda: start_button())
-    btn1.place(x=50, y=570, width=400, height=80)
-
-    btn2 = tk.Button(window, bg="#1e9856", text="RISPOSTA 2", font=("Elephant", 30, "bold"),
-                     command=lambda: start_button())
-    btn2.place(x=550, y=570, width=400, height=80)
-
-    btn3 = tk.Button(window, bg="#1e9856", text="RISPOSTA 3", font=("Elephant", 30, "bold"),
-                     command=lambda: start_button())
-    btn3.place(x=50, y=680, width=400, height=80)
-
-    btn4 = tk.Button(window, bg="#1e9856", text="RISPOSTA 4", font=("Elephant", 30, "bold"),
-                     command=lambda: start_button())
-    btn4.place(x=550, y=680, width=400, height=80)
 
 
 def start_button():
     '''funzione per avviare il gioco e con esso il tempo'''
     broadcast("Game started")
-    close_window(window)
     game_start()
 
 
@@ -64,10 +38,11 @@ def get_ip():
     return IP
 
 
-def broadcast(msg, prefisso=""):
-    '''funzione per inviare i messaggi a tutti i client associati alla chat'''
-    for utente in clients:
-        utente.send(bytes(prefisso, "utf8") + msg)
+def broadcast(obj):
+    """funzione per inviare i messaggi a tutti i client associati alla chat"""
+    print("okokokd")
+    for c in clients.values():
+        c.send(bytes(json.dumps(obj), "utf-8"))
 
 
 def accept_clients(server, y):
@@ -80,28 +55,30 @@ def accept_clients(server, y):
         while True:
             if client_counter.get() < 10:
                 client, client_addr = server.accept()
-                client.send(bytes("~ Salve! Digita il tuo Nome seguito dal tasto Invio!", "utf8"))
                 indirizzi[client] = client_addr
                 threading._start_new_thread(gestisce_client, (client, client_addr))
                 client_counter.set(client_counter.get() + 1)
-            else:
-                client, client_addr = server.accept()
-                client.send(bytes("~ Server pieno, ritenta tra un po'", "utf8"))
+
     except:
         pass
 
 
 def gestisce_client(client, client_addr):
     '''funzione per la gestione dei client'''
-    addClientToList(client_addr)
+    addClientToList(client, client_addr)
     global game_timer
     try:
-        client.send(bytes("~ Ciao, benvenuto nel gioco di Mirko"))
+        broadcast({
+            "cmd": "receiveMsg",
+            "msg": "diobelino",
+            "sender": "ciao"
+        })
     except:
         pass
 
 
-def addClientToList(client_ip):
+def addClientToList(client, client_ip):
+    clients[client_ip] = client
     lbl = label_counter.cget("text")
     label_counter.config(text=str(lbl) + str(client_ip) + "\n")
     label_counter.pack()
@@ -150,6 +127,7 @@ if __name__ == '__main__':
     HOST_PORT = 53000
     BUFSIZ = 1024
     clients = {}
+    usernames = {}
     indirizzi = {}
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

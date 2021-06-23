@@ -5,43 +5,17 @@ Created on Mon Jun 14 21:06:58 2021
 @author: Monta
 """
 
-import tkinter as tk
-from tkinter import messagebox
-from threading import Thread
-import time
-import random
-import socket
 import json
+import socket
+import time
+import tkinter as tk
 from socket import AF_INET, socket, SOCK_STREAM
-
-punteggio = {
-    "cmd": "leaderboard",
-    "leaderboard": [{
-        "name": "ruspa",
-        "points": 5
-    }, {
-        "name": "eskere",
-        "points": 54
-    }],
-    "you": 500
-}
-domanda = {
-    "cmd": "question",
-    "question": "di che colore è il cavallo bianco di napoleone?",
-    "answers": [
-        "rosso",
-        "viola",
-        "verde"
-    ],
-    "time": 10
-}
-messaggio = {
-    "cmd": "receiveMsg",
-    "msg": "TVOIIAAA",
-    "sender": "Azel con la mamma troia"
-}
+from threading import Thread
 
 BUFFERSIZE = 4096
+listMessagesInQueue = []
+leaderboard = []
+lastQuestion = {}
 
 
 class Timer:
@@ -117,7 +91,6 @@ class GameWindow:
         # leaderboard
         self.lstLeaderboard = tk.Listbox(self.finestra, bg="#4181C0", font=("Perpetua", 15, "bold"))
         self.lstLeaderboard.place(x=1000, y=70, width=300, height=230)
-        self.updatePoints(punteggio)
 
         # button sendMessage
         self.sendMsgButton = tk.Button(self.finestra, text="SEND", borderwidth=0, font="'bold'",
@@ -125,17 +98,24 @@ class GameWindow:
         self.sendMsgButton.place(x=1250, y=740, height=50, width=50)
 
         # answer buttons
-        self.btn1 = tk.Button(self.finestra, bg="#1e9856", text="RISPOSTA 1", font=("Elephant", 30, "bold"), command=lambda:self.sendAnswerToServer(0))
+        self.btn1 = tk.Button(self.finestra, bg="#1e9856", text="RISPOSTA 1", font=("Elephant", 30, "bold"),
+                              command=lambda: self.sendAnswerToServer(0))
         self.btn1.place(x=50, y=570, width=400, height=80)
 
-        self.btn2 = tk.Button(self.finestra, bg="#1e9856", text="RISPOSTA 2", font=("Elephant", 30, "bold"), command=lambda:self.sendAnswerToServer(1))
+        self.btn2 = tk.Button(self.finestra, bg="#1e9856", text="RISPOSTA 2", font=("Elephant", 30, "bold"),
+                              command=lambda: self.sendAnswerToServer(1))
         self.btn2.place(x=550, y=570, width=400, height=80)
 
-        self.btn3 = tk.Button(self.finestra, bg="#1e9856", text="RISPOSTA 3", font=("Elephant", 30, "bold"), command=lambda:self.sendAnswerToServer(2))
+        self.btn3 = tk.Button(self.finestra, bg="#1e9856", text="RISPOSTA 3", font=("Elephant", 30, "bold"),
+                              command=lambda: self.sendAnswerToServer(2))
         self.btn3.place(x=300, y=680, width=400, height=80)
         self.disableButtons()
 
-        self.setQuestion(domanda)
+        t = Thread(target=self.receive)
+        t.start()
+        self.updateMessageList()
+        self.update_leaderboard()
+        self.updateQuestion()
 
     def disableButtons(self):
         self.btn1['state'] = tk.DISABLED
@@ -148,48 +128,70 @@ class GameWindow:
         self.btn3['state'] = tk.NORMAL
 
     def setQuestion(self, question):
-        self.enableButtons()
-        self.labelQuestion.config(text=question["question"])
+        global lastQuestion
+        lastQuestion = question
 
-        self.btn1.config(text=question["answers"][0])
-        self.btn2.config(text=question["answers"][1])
-        self.btn3.config(text=question["answers"][2])
+    def updateQuestion(self):
+        global lastQuestion
+        if not lastQuestion is None:
+            self.enableButtons()
 
-        seconds = int(question["time"])
-        minutes = int(seconds / 60)
-        seconds = int(seconds % 60)
-        self.timer = Timer(minutes, seconds)
-        self.timer.start()
-        self.updateTime()
+            self.labelQuestion.config(text=lastQuestion["question"])
+            self.btn1.config(text=lastQuestion["answers"][0])
+            self.btn2.config(text=lastQuestion["answers"][1])
+            self.btn3.config(text=lastQuestion["answers"][2])
+
+            seconds = int(lastQuestion["time"])
+            minutes = int(seconds / 60)
+            seconds = int(seconds % 60)
+            self.timer = Timer(minutes, seconds)
+            self.timer.start()
+            self.updateTime()
+            lastQuestion = {}
+
+        self.finestra.after(250, self.updateQuestion())
 
     def updateTime(self):
         self.timeLeft.set(self.timer.time)
         if not self.timer.time == "00:00":
             self.finestra.after(250, self.updateTime)
 
+    def updateMessageList(self):
+        global listMessagesInQueue
+        if len(listMessagesInQueue) > 0:
+            for message in listMessagesInQueue:
+                self.messageList.insert("end", message)
+            listMessagesInQueue = []
+            self.messageList.update()
+        self.finestra.after(500, self.updateMessageList)
+
+    def update_leaderboard(self):
+        global leaderboard
+
+        if self.lstLeaderboard.size() > 0:
+            self.lstLeaderboard.delete(0, self.lstLeaderboard.size() - 1)
+
+        for player in leaderboard:
+            self.lstLeaderboard.insert("end", player)
+
+        self.lstLeaderboard.update()
+        self.finestra.after(500, self.update_leaderboard)
+
     def updatePoints(self, punteggi):
-        self.lstLeaderboard.delete(first=0, last=tk.END)
-        counter = 1
+        global leaderboard
+        leaderboard.clear()
 
-        if punteggi["you"] > self.player.points:
-            self.player.points = punteggi["you"]
-            self.addChatMessage("correct answer")
-        else:
-            self.addChatMessage("wrong answer")
+        for p in punteggi.leaderboard:
+            leaderboard.insert(p.name + ": " + p.points)
 
-        for player in punteggi["leaderboard"]:
-            name = player["name"]
-            point = player["points"]
-
-            self.lstLeaderboard.insert(counter, name + " : " + str(point))
-            counter += 1
 
     def addChatMessage(self, string):
         self.messageList.insert("end", string)
 
     def addExternalChatMessage(self, messageObject):
-        self.messageList.insert(self.messageList.size() + 1, messageObject["sender"] + ": " + messageObject["msg"])
-        self.finestra.update_idletasks()
+        msg = messageObject["sender"] + ": " + messageObject["msg"]
+        global listMessagesInQueue
+        listMessagesInQueue.insert(len(listMessagesInQueue), msg)
 
     def sendUsernameToServer(self, nickname):
         object = {
@@ -240,6 +242,7 @@ class GameWindow:
             self.finestra.destroy()
         except:
             self.finestra.destroy()
+
 
 class ConnectionWindow:
     def __init__(self):
