@@ -70,7 +70,7 @@ class GameWindow:
         self.labelTimer.place(x=50, y=50, height=50, width=160)
 
         # label question
-        self.labelQuestion = tk.Label(self.finestra, text="in attesa di una domanda...", font=("Perpetua", 30, "bold"),
+        self.labelQuestion = tk.Label(self.finestra, text="...in attesa di una domanda...", font=("Perpetua", 30, "bold"),
                                       bg="medium slate blue", relief="groove")
         self.labelQuestion.place(x=100, y=250, width=800, height=100)
 
@@ -98,17 +98,18 @@ class GameWindow:
         self.sendMsgButton.place(x=1250, y=740, height=50, width=50)
 
         # answer buttons
-        self.btn1 = tk.Button(self.finestra, bg="#1e9856", text="RISPOSTA 1", font=("Elephant", 30, "bold"),
+        self.btn1 = tk.Button(self.finestra, bg="white", text="RISPOSTA 1", font=("Elephant", 30, "bold"),
                               command=lambda: self.sendAnswerToServer(0))
         self.btn1.place(x=50, y=570, width=400, height=80)
 
-        self.btn2 = tk.Button(self.finestra, bg="#1e9856", text="RISPOSTA 2", font=("Elephant", 30, "bold"),
+        self.btn2 = tk.Button(self.finestra, bg="white", text="RISPOSTA 2", font=("Elephant", 30, "bold"),
                               command=lambda: self.sendAnswerToServer(1))
         self.btn2.place(x=550, y=570, width=400, height=80)
 
-        self.btn3 = tk.Button(self.finestra, bg="#1e9856", text="RISPOSTA 3", font=("Elephant", 30, "bold"),
+        self.btn3 = tk.Button(self.finestra, bg="white", text="RISPOSTA 3", font=("Elephant", 30, "bold"),
                               command=lambda: self.sendAnswerToServer(2))
         self.btn3.place(x=300, y=680, width=400, height=80)
+
         self.disableButtons()
 
         t = Thread(target=self.receive)
@@ -312,21 +313,21 @@ class ConnectionWindow:
 class WinnerWindow:
     def __init__(self, msg):
         self.finestra = tk.Tk()
-        self.finestra.title("Client")
-        self.finestra.geometry("500x300")
+        self.finestra.title("chatgame")
+        self.finestra.geometry("700x200")
         self.finestra.config(bg='#4181C0')
         self.finestra.resizable(False, False)
 
         # label
-        self.label = tk.Label(self.finestra, font=("courier"), relief="sunken")
-        self.instruction.place(x=50, y=140, width=400)
+        self.label = tk.Label(self.finestra, relief="solid", borderwidth=1, fg="black", font=("Perpetua", "25", "bold"))
+        self.label.place(x=50, y=75, height=50, width=500)
         self.label.config(text="Winner: " + msg["username"])
 
         # close button
-        self.closeBtn = tk.Button(self.finestra, text="SELECT", bg="#7AB6FF", font=("courier"), command=self.close)
-        self.closeBtn.place(x=390, y=200, width=60, height=40)
+        self.closeBtn = tk.Button(self.finestra, text="CLOSE", bg="#7AB6FF", font=("Perpetua", "13", "bold"), command=self.close)
+        self.closeBtn.place(x=550, y=75, width=70, height=50)
 
-        self.finestra.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.finestra.protocol("WM_DELETE_WINDOW", self.close)
         self.bufferSize = BUFFERSIZE
         self.clientSocket = socket(AF_INET, SOCK_STREAM)
 
@@ -349,6 +350,12 @@ class Player:
 
 def startGame(username, client, bufferSize):
     GameWindow(username, client, bufferSize)
+
+msg = {
+    "cmd": "winner",
+    "username": "gesu cristo"
+}
+
 
 
 if __name__ == "__main__":
