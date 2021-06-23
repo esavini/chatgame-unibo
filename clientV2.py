@@ -42,6 +42,7 @@ messaggio = {
     "sender": "Azel con la mamma troia"
 }
 
+BUFFERSIZE = 4096
 
 class Timer:
     def __init__(self, min, sec):
@@ -219,7 +220,7 @@ class GameWindow:
         """ gestione ricezione dei messaggi."""
         while True:
             try:
-                msg = self.clientSocket.recv(self.bufferSize).decode("utf8")
+                msg = json.loads(self.clientSocket.recv(self.bufferSize).decode("utf8"))
                 command = msg["cmd"]
 
                 if command == "question":
@@ -258,7 +259,7 @@ class ConnectionWindow:
         self.btnNext.place(x=390, y=200, width=60, height=40)
 
         self.finestra.protocol("WM_DELETE_WINDOW", self.on_closing)
-        self.bufferSize = 1024
+        self.bufferSize = BUFFERSIZE
         self.clientSocket = socket(AF_INET, SOCK_STREAM)
 
         tk.mainloop()
@@ -307,15 +308,7 @@ class Player:
 
 
 def startGame(username, client, bufferSize):
-    game = GameWindow(username, client, bufferSize)
-
-def on_closing():
-    try:
-        client_socket.send(bytes("quit", "utf8"))
-        client_socket.close()
-        finestra.destroy()
-    except:
-        finestra.destroy()
+    GameWindow(username, client, bufferSize)
 
 if __name__ == "__main__":
     c = ConnectionWindow()
