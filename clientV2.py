@@ -225,9 +225,9 @@ class GameWindow:
                 if command == "question":
                     self.setQuestion(msg)
                 if command == "receiveMsg":
-                    addExternalChatMessage(msg)
+                    self.addExternalChatMessage(msg)
                 if command == "leaderboard":
-                    updatePoints(msg)
+                    self.updatePoints(msg)
                 if command == "winner":
                     self.on_closing()
                     WinnerWindow(msg)
@@ -320,7 +320,7 @@ class WinnerWindow:
         self.label.config(text="Winner: " + msg["username"])
 
         # close button
-        self.closeBtn = tk.Button(self.finestra, text="SELECT", bg="#7AB6FF", font=("courier"), command=close)
+        self.closeBtn = tk.Button(self.finestra, text="SELECT", bg="#7AB6FF", font=("courier"), command=self.close)
         self.closeBtn.place(x=390, y=200, width=60, height=40)
 
         self.finestra.protocol("WM_DELETE_WINDOW", self.on_closing)
