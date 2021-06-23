@@ -17,12 +17,12 @@ from socket import AF_INET, socket, SOCK_STREAM
 punteggio = {
     "cmd": "leaderboard",
     "leaderboard": [{
-            "name": "ruspa",
-            "points": 5
-        }, {
-            "name": "eskere",
-            "points": 54
-        }],
+        "name": "ruspa",
+        "points": 5
+    }, {
+        "name": "eskere",
+        "points": 54
+    }],
     "you": 500
 }
 domanda = {
@@ -31,7 +31,6 @@ domanda = {
     "answers": [
         "rosso",
         "viola",
-        "arancione",
         "verde"
     ],
     "time": 10
@@ -44,11 +43,13 @@ messaggio = {
 
 BUFFERSIZE = 4096
 
+
 class Timer:
     def __init__(self, min, sec):
         self.minutes = min
         self.seconds = sec
         self.Thread = Thread(target=self.decreaseTime)
+        self.time = ""
         self.termina = False
 
     def start(self):
@@ -59,14 +60,14 @@ class Timer:
 
     def decreaseTime(self):
         while (self.seconds != 0 or self.minutes != 0) and self.termina == False:
-            timeLeft.set(self.getTime())
+            self.time = self.getTime()
             time.sleep(1)
             if self.seconds > 0:
                 self.seconds -= 1
             else:
                 self.minutes -= 1
                 self.seconds = 59
-        timeLeft.set(self.getTime())
+        self.time = self.getTime()
         self.termina = True
         return ""
 
@@ -89,7 +90,8 @@ class GameWindow:
         self.timeLeft = tk.StringVar()
 
         # label timer
-        self.labelTimer = tk.Label(self.finestra, textvariable=self.timeLeft, font=("Perpetua", "40", "bold"), bg="#4181C0",
+        self.labelTimer = tk.Label(self.finestra, textvariable=self.timeLeft, font=("Perpetua", "40", "bold"),
+                                   bg="#4181C0",
                                    borderwidth=2, relief="solid")
         self.labelTimer.place(x=50, y=50, height=50, width=160)
 
@@ -119,19 +121,21 @@ class GameWindow:
 
         # button sendMessage
         self.sendMsgButton = tk.Button(self.finestra, text="SEND", borderwidth=0, font="'bold'",
-                                       command=lambda: self.addChatMessage(self.msgTextBox.get()))
+                                       command=lambda: self.sendMessageToServer(self.msgTextBox.get()))
         self.sendMsgButton.place(x=1250, y=740, height=50, width=50)
 
         # answer buttons
-        self.btn1 = tk.Button(self.finestra, bg="#1e9856", text="RISPOSTA 1", font=("Elephant", 30, "bold"))
+        self.btn1 = tk.Button(self.finestra, bg="#1e9856", text="RISPOSTA 1", font=("Elephant", 30, "bold"), command=lambda:self.sendAnswerToServer(0))
         self.btn1.place(x=50, y=570, width=400, height=80)
 
-        self.btn2 = tk.Button(self.finestra, bg="#1e9856", text="RISPOSTA 2", font=("Elephant", 30, "bold"))
+        self.btn2 = tk.Button(self.finestra, bg="#1e9856", text="RISPOSTA 2", font=("Elephant", 30, "bold"), command=lambda:self.sendAnswerToServer(1))
         self.btn2.place(x=550, y=570, width=400, height=80)
 
-        self.btn3 = tk.Button(self.finestra, bg="#1e9856", text="RISPOSTA 3", font=("Elephant", 30, "bold"))
+        self.btn3 = tk.Button(self.finestra, bg="#1e9856", text="RISPOSTA 3", font=("Elephant", 30, "bold"), command=lambda:self.sendAnswerToServer(2))
         self.btn3.place(x=300, y=680, width=400, height=80)
         self.disableButtons()
+
+        self.setQuestion(domanda)
 
     def disableButtons(self):
         self.btn1['state'] = tk.DISABLED
@@ -142,12 +146,6 @@ class GameWindow:
         self.btn1['state'] = tk.NORMAL
         self.btn2['state'] = tk.NORMAL
         self.btn3['state'] = tk.NORMAL
-
-    def setTimeLeft(self, time):
-        self.timeLeft = time
-
-    def getTimeLeft(self):
-        return self.timeLeft
 
     def setQuestion(self, question):
         self.enableButtons()
@@ -162,6 +160,12 @@ class GameWindow:
         seconds = int(seconds % 60)
         self.timer = Timer(minutes, seconds)
         self.timer.start()
+        self.updateTime()
+
+    def updateTime(self):
+        self.timeLeft.set(self.timer.time)
+        if not self.timer.time == "00:00":
+            self.finestra.after(250, self.updateTime)
 
     def updatePoints(self, punteggi):
         self.lstLeaderboard.delete(first=0, last=tk.END)
@@ -180,40 +184,32 @@ class GameWindow:
             self.lstLeaderboard.insert(counter, name + " : " + str(point))
             counter += 1
 
-    def addChatMessage(self, msg):
-        if msg == "":
-            return
-
-        self.messageList.insert(self.messageList.size() + 1, "ME: " + msg)
-        self.finestra.update_idletasks()
-        self.msgTextBox.delete(0, tk.END)
-        self.sendMessageToServer(msg)
-
     def addExternalChatMessage(self, messageObject):
         self.messageList.insert(self.messageList.size() + 1, messageObject["sender"] + ": " + messageObject["msg"])
         self.finestra.update_idletasks()
 
     def sendUsernameToServer(self, nickname):
-        msg = {
+        object = {
             "cmd": "join",
             "msg": nickname
         }
-        self.clientSocket.send(bytes(msg), "utf8")
+        data = json.dumps(object)
+        self.clientSocket.send(bytes(data, encoding="utf-8"))
 
     def sendMessageToServer(self, msg):
-        msg = {
+        object = {
             "cmd": "sendMsg",
             "msg": msg
         }
-        data = json.dumps(msg)
+        data = json.dumps(object)
         self.clientSocket.send(bytes(data, encoding="utf-8"))
 
-    def sendAnswerToServer(self, idAnswer):
-        msg = {
+    def sendAnswerToServer(self, btnNumber):
+        object = {
             "cmd": "answer",
-            "answer": idAnswer
+            "answer": btnNumber
         }
-        data = json.dumps(msg)
+        data = json.dumps(object)
         self.clientSocket.send(bytes(data, encoding="utf-8"))
 
     def receive(self):
@@ -224,15 +220,23 @@ class GameWindow:
                 command = msg["cmd"]
 
                 if command == "question":
-                    setQuestion(msg)
+                    self.setQuestion(msg)
                 if command == "receiveMsg":
                     addExternalChatMessage(msg)
                 if command == "leaderboard":
                     updatePoints(msg)
-
+                if command == "winner":
+                    self.on_closing()
+                    WinnerWindow(msg)
             except OSError:
                 break
 
+    def on_closing(self):
+        try:
+            self.clientSocket.close()
+            self.finestra.destroy()
+        except:
+            self.finestra.destroy()
 
 class ConnectionWindow:
     def __init__(self):
@@ -293,7 +297,37 @@ class ConnectionWindow:
 
     def on_closing(self):
         try:
-            self.clientSocket.send(bytes("quit", "utf8"))
+            self.clientSocket.close()
+            self.finestra.destroy()
+        except:
+            self.finestra.destroy()
+
+
+class WinnerWindow:
+    def __init__(self, msg):
+        self.finestra = tk.Tk()
+        self.finestra.title("Client")
+        self.finestra.geometry("500x300")
+        self.finestra.config(bg='#4181C0')
+        self.finestra.resizable(False, False)
+
+        # label
+        self.label = tk.Label(self.finestra, font=("courier"), relief="sunken")
+        self.instruction.place(x=50, y=140, width=400)
+        self.label.config(text="Winner: " + msg["username"])
+
+        # close button
+        self.closeBtn = tk.Button(self.finestra, text="SELECT", bg="#7AB6FF", font=("courier"), command=close)
+        self.closeBtn.place(x=390, y=200, width=60, height=40)
+
+        self.finestra.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.bufferSize = BUFFERSIZE
+        self.clientSocket = socket(AF_INET, SOCK_STREAM)
+
+        tk.mainloop()
+
+    def close(self):
+        try:
             self.clientSocket.close()
             self.finestra.destroy()
         except:
@@ -309,6 +343,7 @@ class Player:
 
 def startGame(username, client, bufferSize):
     GameWindow(username, client, bufferSize)
+
 
 if __name__ == "__main__":
     c = ConnectionWindow()
