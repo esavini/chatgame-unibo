@@ -184,6 +184,9 @@ class GameWindow:
             self.lstLeaderboard.insert(counter, name + " : " + str(point))
             counter += 1
 
+    def addChatMessage(self, string):
+        self.messageList.insert("end", string)
+
     def addExternalChatMessage(self, messageObject):
         self.messageList.insert(self.messageList.size() + 1, messageObject["sender"] + ": " + messageObject["msg"])
         self.finestra.update_idletasks()
