@@ -229,6 +229,7 @@ class GameWindow:
         self.clientSocket.send(bytes(data, encoding="utf-8"))
 
     def sendAnswerToServer(self, btnNumber):
+        self.disableButtons()
         object = {
             "cmd": "answer",
             "answer": btnNumber
