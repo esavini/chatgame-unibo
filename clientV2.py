@@ -153,6 +153,7 @@ class GameWindow:
 
     def updateQuestion(self):
         global lastQuestion
+        global correction
 
         if lastQuestion is not None:
             self.enableButtons()
@@ -169,6 +170,7 @@ class GameWindow:
             self.timer.start()
             self.updateTime()
             lastQuestion = None
+            correction = None
 
         self.finestra.after(250, self.updateQuestion)
 

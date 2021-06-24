@@ -6,25 +6,63 @@ Created on Mon Jun 14 21:06:35 2021
 """
 import json
 import socket
-import struct
 import threading
 import tkinter as tk
 from time import sleep
 
 
 def game_start():
-    # grafica
-    window = tk.Tk()
-    window.title("CHATGAME")
-    window.geometry("1000x800")
-    window.config(bg="slateBlue")
-    window.resizable(False, False)
+    broadcast({
+        "cmd": "question",
+        "question": "di che colore è il cavallo bianco di napoleone?",
+        "answers": [
+            "bianco",
+            "viola",
+            "arancione"
+        ],
+        "time": 10
+    })
+
+    sleep(13)
+
+    broadcast({
+        "cmd": "correction",
+        "answer": 0
+    })
+
+    sleep(3)
+
+    broadcast({
+        "cmd": "question",
+        "question": "di che colore è il cavallo rosso di napoleone?",
+        "answers": [
+            "bianco",
+            "rosso",
+            "arancione"
+        ],
+        "time": 10
+    })
+
+    sleep(13)
+
+    broadcast({
+        "cmd": "correction",
+        "answer": 1
+    })
+
+    sleep(3)
 
 
+
+
+started = False
 def start_button():
     '''funzione per avviare il gioco e con esso il tempo'''
-    broadcast("Game started")
-    game_start()
+    global started
+    if not started:
+        t = threading.Thread(target=game_start)
+        t.start()
+        started = True
 
 
 def get_ip():
@@ -72,48 +110,7 @@ def gestisce_client(client, client_addr):
     '''funzione per la gestione dei client'''
     addClientToList(client, client_addr)
     global game_timer
-    try:
-        broadcast({
-            "cmd": "receiveMsg",
-            "msg": "diobelino",
-            "sender": "ciao"
-        })
-        broadcast({
-            "cmd": "leaderboard",
-            "leaderboard": [
-                {
-                    "name": "pippo",
-                    "points": 100
-                },
-                {
-                    "name": "monta",
-                    "points": 100
-                },
-            ]
-        })
-        broadcast({
-            "cmd": "question",
-            "question": "di che colore è il cavallo bianco di napoleone?",
-            "answers": [
-                "rosso",
-                "viola",
-                "arancione"
-            ],
-            "time": 60
-        })
-        sleep(10)
-        broadcast({
-            "cmd": "correction",
-            "answer": 2
-        })
 
-        sleep(10)
-        broadcast({
-            "cmd": "winner",
-            "username": "VACCARI"
-        })
-    except:
-        pass
 
 
 def addClientToList(client, client_ip):
