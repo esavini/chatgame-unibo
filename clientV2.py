@@ -7,6 +7,7 @@ Created on Mon Jun 14 21:06:58 2021
 
 import json
 import socket
+import struct
 import time
 import tkinter as tk
 from socket import AF_INET, socket, SOCK_STREAM
@@ -15,7 +16,8 @@ from threading import Thread
 BUFFERSIZE = 4096
 listMessagesInQueue = []
 leaderboard = []
-lastQuestion = {}
+lastQuestion = None
+correction = None
 
 
 class Timer:
@@ -70,7 +72,8 @@ class GameWindow:
         self.labelTimer.place(x=50, y=50, height=50, width=160)
 
         # label question
-        self.labelQuestion = tk.Label(self.finestra, text="...in attesa di una domanda...", font=("Perpetua", 30, "bold"),
+        self.labelQuestion = tk.Label(self.finestra, text="...in attesa di una domanda...",
+                                      font=("Perpetua", 30, "bold"),
                                       bg="medium slate blue", relief="groove")
         self.labelQuestion.place(x=100, y=250, width=800, height=100)
 
@@ -97,6 +100,7 @@ class GameWindow:
                                        command=lambda: self.sendMessageToServer(self.msgTextBox.get()))
         self.sendMsgButton.place(x=1250, y=740, height=50, width=50)
 
+        global correction
         # answer buttons
         self.btn1 = tk.Button(self.finestra, bg="white", text="RISPOSTA 1", font=("Elephant", 30, "bold"),
                               command=lambda: self.sendAnswerToServer(0))
@@ -117,6 +121,7 @@ class GameWindow:
         self.updateMessageList()
         self.update_leaderboard()
         self.updateQuestion()
+        self.refreshButtons()
 
     def disableButtons(self):
         self.btn1['state'] = tk.DISABLED
@@ -132,15 +137,30 @@ class GameWindow:
         global lastQuestion
         lastQuestion = question
 
+    def updateCorrection(self, corr):
+        global correction
+        print(corr)
+        correction = corr["answer"]
+
+    def refreshButtons(self):
+        global correction
+        print(correction)
+        self.btn1.config(bg=("green" if correction == 0 else "white"))
+        self.btn2.config(bg=("green" if correction == 1 else "white"))
+        self.btn3.config(bg=("green" if correction == 2 else "white"))
+
+        self.finestra.after(250, self.refreshButtons)
+
     def updateQuestion(self):
         global lastQuestion
-        if not lastQuestion is None:
+
+        if lastQuestion is not None:
             self.enableButtons()
 
             self.labelQuestion.config(text=lastQuestion["question"])
-            self.btn1.config(text=lastQuestion["answers"][0])
-            self.btn2.config(text=lastQuestion["answers"][1])
-            self.btn3.config(text=lastQuestion["answers"][2])
+            self.btn1.config(bg="white", text=lastQuestion["answers"][0])
+            self.btn2.config(bg="white", text=lastQuestion["answers"][1])
+            self.btn3.config(bg="white", text=lastQuestion["answers"][2])
 
             seconds = int(lastQuestion["time"])
             minutes = int(seconds / 60)
@@ -148,9 +168,9 @@ class GameWindow:
             self.timer = Timer(minutes, seconds)
             self.timer.start()
             self.updateTime()
-            lastQuestion = {}
+            lastQuestion = None
 
-        self.finestra.after(250, self.updateQuestion())
+        self.finestra.after(250, self.updateQuestion)
 
     def updateTime(self):
         self.timeLeft.set(self.timer.time)
@@ -169,8 +189,7 @@ class GameWindow:
     def update_leaderboard(self):
         global leaderboard
 
-        if self.lstLeaderboard.size() > 0:
-            self.lstLeaderboard.delete(0, self.lstLeaderboard.size() - 1)
+        self.lstLeaderboard.delete(0, tk.END)
 
         for player in leaderboard:
             self.lstLeaderboard.insert("end", player)
@@ -182,9 +201,8 @@ class GameWindow:
         global leaderboard
         leaderboard.clear()
 
-        for p in punteggi.leaderboard:
-            leaderboard.insert(p.name + ": " + p.points)
-
+        for p in punteggi["leaderboard"]:
+            leaderboard.insert(len(leaderboard), p["name"] + ": " + str(p["points"]))
 
     def addChatMessage(self, string):
         self.messageList.insert("end", string)
@@ -218,22 +236,36 @@ class GameWindow:
         data = json.dumps(object)
         self.clientSocket.send(bytes(data, encoding="utf-8"))
 
+
+
     def receive(self):
         """ gestione ricezione dei messaggi."""
+
+        recv_buffer = ""
+
         while True:
             try:
-                msg = json.loads(self.clientSocket.recv(self.bufferSize).decode("utf8"))
-                command = msg["cmd"]
+                data = self.clientSocket.recv(128)
+                recv_buffer = recv_buffer + data.decode("utf-8")
+                strings = recv_buffer.split('\0')
+                for s in strings[:-1]:
+                    s = json.loads(s)
+                    command = s["cmd"]
 
-                if command == "question":
-                    self.setQuestion(msg)
-                if command == "receiveMsg":
-                    self.addExternalChatMessage(msg)
-                if command == "leaderboard":
-                    self.updatePoints(msg)
-                if command == "winner":
-                    self.on_closing()
-                    WinnerWindow(msg)
+                    if command == "question":
+                        self.setQuestion(s)
+                    if command == "receiveMsg":
+                        self.addExternalChatMessage(s)
+                    if command == "leaderboard":
+                        self.updatePoints(s)
+                    if command == "winner":
+                        self.on_closing()
+                        WinnerWindow(s)
+                    if command == "correction":
+                        self.updateCorrection(s)
+
+                recv_buffer = strings[-1]
+
             except OSError:
                 break
 
@@ -324,7 +356,8 @@ class WinnerWindow:
         self.label.config(text="Winner: " + msg["username"])
 
         # close button
-        self.closeBtn = tk.Button(self.finestra, text="CLOSE", bg="#7AB6FF", font=("Perpetua", "13", "bold"), command=self.close)
+        self.closeBtn = tk.Button(self.finestra, text="CLOSE", bg="#7AB6FF", font=("Perpetua", "13", "bold"),
+                                  command=self.close)
         self.closeBtn.place(x=550, y=75, width=70, height=50)
 
         self.finestra.protocol("WM_DELETE_WINDOW", self.close)
@@ -351,12 +384,11 @@ class Player:
 def startGame(username, client, bufferSize):
     GameWindow(username, client, bufferSize)
 
+
 msg = {
     "cmd": "winner",
     "username": "gesu cristo"
 }
-
-
 
 if __name__ == "__main__":
     c = ConnectionWindow()

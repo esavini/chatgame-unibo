@@ -6,8 +6,10 @@ Created on Mon Jun 14 21:06:35 2021
 """
 import json
 import socket
+import struct
 import threading
 import tkinter as tk
+from time import sleep
 
 
 def game_start():
@@ -40,9 +42,12 @@ def get_ip():
 
 def broadcast(obj):
     """funzione per inviare i messaggi a tutti i client associati alla chat"""
-    print("okokokd")
     for c in clients.values():
-        c.send(bytes(json.dumps(obj), "utf-8"))
+        send_to_client(c, obj)
+
+
+def send_to_client(client, obj):
+    client.send(bytes(json.dumps(obj) + "\0", "utf-8"))
 
 
 def accept_clients(server, y):
@@ -72,6 +77,40 @@ def gestisce_client(client, client_addr):
             "cmd": "receiveMsg",
             "msg": "diobelino",
             "sender": "ciao"
+        })
+        broadcast({
+            "cmd": "leaderboard",
+            "leaderboard": [
+                {
+                    "name": "pippo",
+                    "points": 100
+                },
+                {
+                    "name": "monta",
+                    "points": 100
+                },
+            ]
+        })
+        broadcast({
+            "cmd": "question",
+            "question": "di che colore è il cavallo bianco di napoleone?",
+            "answers": [
+                "rosso",
+                "viola",
+                "arancione"
+            ],
+            "time": 60
+        })
+        sleep(10)
+        broadcast({
+            "cmd": "correction",
+            "answer": 2
+        })
+
+        sleep(10)
+        broadcast({
+            "cmd": "winner",
+            "username": "VACCARI"
         })
     except:
         pass
