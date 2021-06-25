@@ -17,7 +17,7 @@ def game_start():
     window = tk.Tk()
     window.title("CHATGAME")
     window.geometry("1000x800")
-    window.config(bg="slateBlue")
+    window.config(bg="#7AB6FF")
     window.resizable(False, False)
 
 
@@ -52,13 +52,13 @@ def send_to_client(client, obj):
 
 def accept_clients(server, y):
     '''funzione per la gestione dell'accettazione di client da parte del server
-    la chat può accettare al massimo 10 client'''
-    if gioco_iniziato.get() == True:
+    la chat può accettare al massimo 8 client'''
+    if gameStarted.get() == True:
         return
 
     try:
         while True:
-            if client_counter.get() < 10:
+            if client_counter.get() < 8:
                 client, client_addr = server.accept()
                 indirizzi[client] = client_addr
                 threading._start_new_thread(gestisce_client, (client, client_addr))
@@ -101,13 +101,13 @@ def gestisce_client(client, client_addr):
             ],
             "time": 60
         })
-        sleep(10)
+        sleep(3)
         broadcast({
             "cmd": "correction",
             "answer": 2
         })
 
-        sleep(10)
+        sleep(3)
         broadcast({
             "cmd": "winner",
             "username": "VACCARI"
@@ -133,10 +133,10 @@ if __name__ == '__main__':
     window = tk.Tk()
     window.title("Server")
     window.geometry("400x500")
-    window.config(bg="slateBlue")
+    window.config(bg="#7AB6FF")
     window.resizable(False, False)
 
-    gioco_iniziato = tk.BooleanVar(False)
+    gameStarted = tk.BooleanVar(False)
     almeno_un_nome = tk.BooleanVar(False)
     client_counter = tk.IntVar(0)
 

@@ -2,7 +2,6 @@ import threading
 
 from src.common.net.SocketManager import SocketManager
 
-
 class ServerSocketManager(SocketManager):
     """Server side specific implementation of the socket manager."""
 

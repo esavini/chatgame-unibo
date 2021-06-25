@@ -18,6 +18,7 @@ listMessagesInQueue = []
 leaderboard = []
 lastQuestion = None
 correction = None
+winner = ""
 
 
 class Timer:
@@ -168,6 +169,7 @@ class GameWindow:
             self.timer = Timer(minutes, seconds)
             self.timer.start()
             self.updateTime()
+            self.updateWinner()
             lastQuestion = None
 
         self.finestra.after(250, self.updateQuestion)
@@ -259,8 +261,8 @@ class GameWindow:
                     if command == "leaderboard":
                         self.updatePoints(s)
                     if command == "winner":
-                        self.on_closing()
-                        WinnerWindow(s)
+                        global winner
+                        winner = s["username"]
                     if command == "correction":
                         self.updateCorrection(s)
 
@@ -269,7 +271,32 @@ class GameWindow:
             except OSError:
                 break
 
-    def on_closing(self):
+    def on_closing(self, s):
+        try:
+            self.clientSocket.close()
+            self.finestra.destroy()
+        except:
+            self.finestra.destroy()
+
+    def updateWinner(self):
+        global winner
+        if winner != "":
+            stringa = "Winner: " + winner
+            self.finestra.title("chatgame")
+            self.finestra.geometry("700x200")
+            self.finestra.config(bg='#4181C0')
+            self.finestra.resizable(False, False)
+            self.label = tk.Label(self.finestra, relief="solid", borderwidth=1, fg="black",
+                                  font=("Perpetua", "25", "bold"), text=stringa)
+            self.label.place(x=50, y=75, height=50, width=500)
+            self.closeBtn = tk.Button(self.finestra, text="CLOSE", bg="#7AB6FF", font=("Perpetua", "13", "bold"),
+                                      command=self.close)
+            self.closeBtn.place(x=550, y=75, width=70, height=50)
+            self.labelTimer.destroy()
+        else:
+            self.finestra.after(500, self.updateWinner)
+
+    def close(self):
         try:
             self.clientSocket.close()
             self.finestra.destroy()
@@ -342,43 +369,10 @@ class ConnectionWindow:
             self.finestra.destroy()
 
 
-class WinnerWindow:
-    def __init__(self, msg):
-        self.finestra = tk.Tk()
-        self.finestra.title("chatgame")
-        self.finestra.geometry("700x200")
-        self.finestra.config(bg='#4181C0')
-        self.finestra.resizable(False, False)
-
-        # label
-        self.label = tk.Label(self.finestra, relief="solid", borderwidth=1, fg="black", font=("Perpetua", "25", "bold"))
-        self.label.place(x=50, y=75, height=50, width=500)
-        self.label.config(text="Winner: " + msg["username"])
-
-        # close button
-        self.closeBtn = tk.Button(self.finestra, text="CLOSE", bg="#7AB6FF", font=("Perpetua", "13", "bold"),
-                                  command=self.close)
-        self.closeBtn.place(x=550, y=75, width=70, height=50)
-
-        self.finestra.protocol("WM_DELETE_WINDOW", self.close)
-        self.bufferSize = BUFFERSIZE
-        self.clientSocket = socket(AF_INET, SOCK_STREAM)
-
-        tk.mainloop()
-
-    def close(self):
-        try:
-            self.clientSocket.close()
-            self.finestra.destroy()
-        except:
-            self.finestra.destroy()
-
-
 class Player:
     def __init__(self, name):
         self.username = name
         self.points = 0
-        self.rightAnswer = 0
 
 
 def startGame(username, client, bufferSize):
