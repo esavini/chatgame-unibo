@@ -359,7 +359,7 @@ class ConnectionWindow:
             self.finestra.destroy()
             startGame(self.username, self.clientSocket, self.bufferSize)
         else:
-            self.istruzioni.config(text="IP NON VALIDO, RIPROVA")
+            self.instruction.config(text="IP NON VALIDO, RIPROVA")
 
     def on_closing(self):
         try:

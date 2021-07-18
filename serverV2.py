@@ -1,9 +1,7 @@
 import json
 import socket
-import struct
 import threading
 import tkinter as tk
-from time import sleep
 
 
 class Client:
@@ -30,13 +28,18 @@ class Server:
         self.socket.bind((self.HOST_ADDR, self.HOST_PORT))
 
     # accept clients while their number is smaller than maxClients
-    def accept_clients(self, y):
+    def accept_clients(self):
         try:
             while True:
                 if self.clientCounter < 8:
                     client, client_addr = self.socket.accept()
                     self.clients.append(Client(client, client_addr))
                     self.clientCounter += 1
+
+                    c = Client()
+                    c.ip = client_addr
+                    c.socket = client
+                    threading._start_new_thread(self.manage_client, c)
         except:
             pass
 
@@ -78,10 +81,8 @@ class Server:
 
 class ConnectionWindow:
     def __init__(self):
-        self.server = Server()
-
         self.window = tk.Tk()
-        self.window.title("Client")
+        self.window.title("Server")
         self.window.geometry("500x300")
         self.window.config(bg='#4181C0')
         self.window.resizable(False, False)
@@ -93,6 +94,10 @@ class ConnectionWindow:
         self.startButton = tk.Button(self.window, bg="#F2F2F2", text="START", borderwidth=3, highlightthickness=0,
                                      font="30", command=self.start_server)
         self.startButton.place(x=400, y=125, width=60, height=50)
+
+        self.server = Server()
+        self.server.socket.listen(10)
+        threading._start_new_thread(self.server.accept_clients, ())
         tk.mainloop()
 
     def start_server(self):
@@ -100,8 +105,13 @@ class ConnectionWindow:
             self.window.destroy()
             ServerWindow(self.server)
         except:
-            self.finestra.destroy()
+            self.window.destroy()
 
+    def add_client_to_list(self, client):
+        self.server.clients.append(client)
+        lbl = self.ipList.cget("text")
+        self.ipList.config(text=str(lbl) + str(client.ip) + "\n")
+        self.ipList.pack()
 
 class ServerWindow:
     def __init__(self, server):
