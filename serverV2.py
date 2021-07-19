@@ -14,6 +14,8 @@ class Player:
 
 def game_start():
 
+    global accept_answers
+
     broadcast({
         "cmd": "start"
     })
@@ -28,15 +30,11 @@ def game_start():
         ],
         "time": 10
     })
+    accept_answers = True
 
-    sleep(13)
+    sleep(10)
 
-    broadcast({
-        "cmd": "correction",
-        "answer": 0
-    })
-
-    sleep(3)
+    close_question(0)
 
     broadcast({
         "cmd": "question",
@@ -49,14 +47,11 @@ def game_start():
         "time": 10
     })
 
-    sleep(13)
+    accept_answers = True
 
-    broadcast({
-        "cmd": "correction",
-        "answer": 1
-    })
+    sleep(10)
 
-    sleep(3)
+    close_question(1)
 
 
 started = False
@@ -268,6 +263,8 @@ if __name__ == '__main__':
     clients = {}
     players = {}
     indirizzi = {}
+    answers = {}
+    accept_answers = False
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((HOST_ADDR, HOST_PORT))
