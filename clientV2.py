@@ -219,26 +219,24 @@ class GameWindow:
             "cmd": "join",
             "msg": nickname
         }
-        data = json.dumps(object)
-        self.clientSocket.send(bytes(data, encoding="utf-8"))
+        self.send_to_server(object)
 
     def sendMessageToServer(self, msg):
         object = {
             "cmd": "sendMsg",
             "msg": msg
         }
-        data = json.dumps(object)
-        self.clientSocket.send(bytes(data, encoding="utf-8"))
+        self.send_to_server(object)
 
     def sendAnswerToServer(self, btnNumber):
         object = {
             "cmd": "answer",
             "answer": btnNumber
         }
-        data = json.dumps(object)
-        self.clientSocket.send(bytes(data, encoding="utf-8"))
+        self.send_to_server(object)
 
-
+    def send_to_server(self, obj):
+        self.clientSocket.send(bytes(json.dumps(obj) + "\0", "utf-8"))
 
     def receive(self):
         """ gestione ricezione dei messaggi."""

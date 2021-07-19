@@ -2,150 +2,233 @@ import json
 import socket
 import threading
 import tkinter as tk
+from time import sleep
 
 
-class Client:
-    def __init__(self, socket, ip):
-        self.socket = socket
-        self.ip = ip
-        self.username = None
-
-    def set_username(self, username):
-        self.username = username
-
-
-class Server:
+class Player:
     def __init__(self):
-        self.HOST_ADDR = ""
-        self.HOST_PORT = 53000
-        self.BUFSIZ = 1024
+        self.username = "Antilope anonima..."
+        self.points = 0
 
-        self.maxClients = 8
-        self.clientCounter = 0
-        self.clients = []
 
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.bind((self.HOST_ADDR, self.HOST_PORT))
 
-    # accept clients while their number is smaller than maxClients
-    def accept_clients(self):
+def game_start():
+
+    broadcast({
+        "cmd": "start"
+    })
+
+    broadcast({
+        "cmd": "question",
+        "question": "di che colore è il cavallo bianco di napoleone?",
+        "answers": [
+            "bianco",
+            "viola",
+            "arancione"
+        ],
+        "time": 10
+    })
+
+    sleep(13)
+
+    broadcast({
+        "cmd": "correction",
+        "answer": 0
+    })
+
+    sleep(3)
+
+    broadcast({
+        "cmd": "question",
+        "question": "di che colore è il cavallo rosso di napoleone?",
+        "answers": [
+            "bianco",
+            "rosso",
+            "arancione"
+        ],
+        "time": 10
+    })
+
+    sleep(13)
+
+    broadcast({
+        "cmd": "correction",
+        "answer": 1
+    })
+
+    sleep(3)
+
+
+started = False
+
+
+def start_button():
+    '''funzione per avviare il gioco e con esso il tempo'''
+    global started
+    if not started:
+        t = threading.Thread(target=game_start)
+        t.start()
+        started = True
+
+
+def get_ip():
+    """estrae l'ip per mostrarlo a video """
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+    except:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+
+def receive(client, client_addr):
+    """ gestione ricezione dei messaggi."""
+
+    recv_buffer = ""
+
+    while True:
         try:
-            while True:
-                if self.clientCounter < 8:
-                    client, client_addr = self.socket.accept()
-                    self.clients.append(Client(client, client_addr))
-                    self.clientCounter += 1
+            data = client.recv(128)
+            recv_buffer = recv_buffer + data.decode("utf-8")
+            strings = recv_buffer.split('\0')
+            for s in strings[:-1]:
+                s = json.loads(s)
+                command = s["cmd"]
+                print(s)
+                if command == "join":
+                    setUsername(client_addr, s["msg"])
+                #if command == "question":
+         #           self.setQuestion(s)
+                #if command == "receiveMsg":
+          #          self.addExternalChatMessage(s)
+                #if command == "leaderboard":
+           #         self.updatePoints(s)
+                #if command == "winner":
+             #       global winner
+            #        winner = s["username"]
+               # if command == "correction":
+              #      self.updateCorrection(s)
 
-                    c = Client()
-                    c.ip = client_addr
-                    c.socket = client
-                    threading._start_new_thread(self.manage_client, c)
-        except:
-            pass
+            recv_buffer = strings[-1]
 
-    # send an object to a client
-    def send_to_client(self, client, obj):
-        client.socket.send(bytes(json.dumps(obj) + "\0", "utf-8"))
+        except OSError:
+            break
 
-    # send an object to all clients
-    def broadcast(self, obj):
-        for c in self.clients:
-            self.send_to_client(c, obj)
+def setUsername(client_addr, username):
+    players[client_addr].username = username
+    print(username)
+    update_leaderboard()
 
-    # get server ip
-    def get_ip(self):
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            s.connect(('10.255.255.255', 1))
-            IP = s.getsockname()[0]
-        except:
-            IP = '127.0.0.1'
-        finally:
-            s.close()
-        return IP
+def broadcast(obj):
+    """funzione per inviare i messaggi a tutti i client associati alla chat"""
+    for c in clients.values():
+        send_to_client(c, obj)
 
-    # manage a client
-    def manage_client(self, client):
-        while client.username is None:
-            obj = client.socket.recv(self.BUFSIZ).decode()
-            if obj["command"] == "username":
-                client.username = obj["username"]
 
+def send_to_client(client, obj):
+    client.send(bytes(json.dumps(obj) + "\0", "utf-8"))
+
+
+def accept_clients(server, y):
+    '''funzione per la gestione dell'accettazione di client da parte del server
+    la chat può accettare al massimo 10 client'''
+    if gioco_iniziato.get() == True:
+        return
+
+    try:
         while True:
-            print("eskere")
+            if client_counter.get() < 10:
+                client, client_addr = server.accept()
+                indirizzi[client] = client_addr
 
-    def start_managing_clients(self):
-        for c in self.clients:
-            self.manage_client(c)
-        obj = {
-            "cmd": "start"
-        }
-        self.broadcast(obj)
+                threading._start_new_thread(gestisce_client, (client, client_addr))
+                client_counter.set(client_counter.get() + 1)
 
-
-class ConnectionWindow:
-    def __init__(self):
-        self.window = tk.Tk()
-        self.window.title("Server")
-        self.window.geometry("500x300")
-        self.window.config(bg='#4181C0')
-        self.window.resizable(False, False)
-        self.opened = True
-
-        self.ipList = tk.Listbox(self.window, bg="#F2F2F2", borderwidth=3, highlightthickness=0, font="30")
-        self.ipList.grid(row=1, padx=(100, 100))
-        self.ipList.place(x=50, y=50, height=200, width=300)
-
-        self.startButton = tk.Button(self.window, bg="#F2F2F2", text="START", borderwidth=3, highlightthickness=0,
-                                     font="30", command=self.start_server)
-        self.startButton.place(x=400, y=125, width=60, height=50)
-
-        self.server = Server()
-        self.server.socket.listen(10)
-        threading._start_new_thread(self.server.accept_clients, ())
-        self.update_ip_list()
-        tk.mainloop()
-
-    def start_server(self):
-        try:
-            self.opened = False
-            self.window.destroy()
-            ServerWindow(self.server)
-        except:
-            self.window.destroy()
-
-    def addClientToList(self, client_ip):
-        lbl = self.ipList.cget("text")
-        self.ipList.config(text=str(lbl) + str(client_ip) + "\n")
-        self.ipList.pack()
-
-    def update_ip_list(self):
-        if self.opened:
-            self.ipList.delete(0, tk.END)
-            if len(self.server.clients) > 0:
-                for c in self.server.clients:
-                    self.ipList.insert(0, str(c.ip) + "\n")
-                    print(c.ip)
-            else:
-                print("no clients")
-            self.ipList.pack()
-
-            if self.opened:
-                self.window.after(500, self.update_ip_list)
+    except:
+        pass
 
 
-class ServerWindow:
-    def __init__(self, server):
-        self.server = server
-
-        self.window = tk.Tk()
-        self.window.title("Client")
-        self.window.geometry("500x300")
-        self.window.config(bg='#4181C0')
-        self.window.resizable(False, False)
-
-        #self.server.start_managing_clients()
+def gestisce_client(client, client_addr):
+    '''funzione per la gestione dei client'''
+    addClientToList(client, client_addr)
+    #threading.Thread(target=receive, args=(client, client_addr))
+    receive(client, client_addr)
+    global game_timer
 
 
-if __name__ == "__main__":
-    c = ConnectionWindow()
+def addClientToList(client, client_ip):
+    clients[client_ip] = client
+    players[client_ip] = Player()
+
+    update_leaderboard()
+
+    lbl = label_counter.cget("text")
+    label_counter.config(text=str(lbl) + str(client_ip) + "\n")
+    label_counter.pack()
+
+def update_leaderboard():
+    broadcast({
+        "cmd": "leaderboard",
+        "leaderboard": [{
+            "name": player.username,
+            "points": player.points
+        } for player in sorted(list(players.values()), key=lambda a: a.points)]
+    })
+
+def close_window(window):
+    window.destroy()
+
+
+if __name__ == '__main__':
+    # grafica
+
+    window = tk.Tk()
+    window.title("Server")
+    window.geometry("400x500")
+    window.config(bg="slateBlue")
+    window.resizable(False, False)
+
+    gioco_iniziato = tk.BooleanVar(False)
+    almeno_un_nome = tk.BooleanVar(False)
+    client_counter = tk.IntVar(0)
+
+    # start button
+    btnStart = tk.Button(window, bg="#1e9856", text="START GAME", font=("Elephant", 30, "bold"),
+                         command=lambda: start_button())
+    btnStart.place(x=25, y=270, width=350, height=80)
+
+    # list
+    label_counter = tk.Label(window, text="", font=("forte", 14, "bold"), bg="medium slate blue", relief="sunken")
+    label_counter.place(x=20, y=20, width=360, height=200)
+
+    # server ip
+    label_ip = tk.Label(window, text="Indirizzo IP:", font=("Perpetua", 25, "bold"), bg="medium slate blue",
+                        relief="groove")
+    label_ip.place(x=50, y=360, width=300, height=50)
+    label_ip = tk.Label(window, text=str(get_ip()), font=("Perpetua", 30, "bold"), bg="medium slate blue",
+                        relief="groove")
+    label_ip.place(x=50, y=420, width=300, height=70)
+
+    # variabili nel main
+    game_timer = 100
+
+    # gestione della connessione
+    server = None
+    HOST_ADDR = ""
+    HOST_PORT = 53000
+    BUFSIZ = 1024
+    clients = {}
+    players = {}
+    indirizzi = {}
+
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind((HOST_ADDR, HOST_PORT))
+
+    server.listen(10)
+    threading._start_new_thread(accept_clients, (server, " "))
+    window.mainloop()
+    server.close()
+
+
