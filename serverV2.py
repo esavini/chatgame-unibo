@@ -99,8 +99,10 @@ def receive(client, client_addr):
                 print(s)
                 if command == "join":
                     setUsername(client_addr, s["msg"])
-                #if command == "question":
-         #           self.setQuestion(s)
+                if command == "sendMsg":
+                    send_msg(client_addr, s["msg"])
+                if command == "answer":
+                    receive_answer(client_addr, s["answer"])
                 #if command == "receiveMsg":
           #          self.addExternalChatMessage(s)
                 #if command == "leaderboard":
@@ -116,10 +118,52 @@ def receive(client, client_addr):
         except OSError:
             break
 
+def receive_answer(client_addr, answer):
+    if not accept_answers:
+        return
+
+    answers[client_addr] = answer
+
+def close_question(correct_answer):
+    global accept_answers
+    accept_answers = False
+
+    for client_addr, answer in answers.items():
+        if answer == correct_answer:
+            players[client_addr].points += 100
+
+    sleep(3)
+
+    broadcast({
+        "cmd": "correction",
+        "answer": correct_answer
+    })
+
+    sleep(3)
+
+    update_leaderboard()
+
+
+def send_msg(client_addr, msg):
+    broadcast({
+        "cmd": "receiveMsg",
+        "msg": msg,
+        "sender": players[client_addr].username
+    })
+
+def write_msg(msg):
+    object = {
+        "command": "",
+        "msg": msg
+    }
+    broadcast(object)
+
+
 def setUsername(client_addr, username):
     players[client_addr].username = username
     print(username)
     update_leaderboard()
+
 
 def broadcast(obj):
     """funzione per inviare i messaggi a tutti i client associati alla chat"""
@@ -168,6 +212,7 @@ def addClientToList(client, client_ip):
     label_counter.config(text=str(lbl) + str(client_ip) + "\n")
     label_counter.pack()
 
+
 def update_leaderboard():
     broadcast({
         "cmd": "leaderboard",
@@ -176,6 +221,7 @@ def update_leaderboard():
             "points": player.points
         } for player in sorted(list(players.values()), key=lambda a: a.points)]
     })
+
 
 def close_window(window):
     window.destroy()

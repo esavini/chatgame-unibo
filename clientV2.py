@@ -145,7 +145,7 @@ class GameWindow:
 
     def refreshButtons(self):
         global correction
-        print(correction)
+        # print(correction)
         self.btn1.config(bg=("green" if correction == 0 else "white"))
         self.btn2.config(bg=("green" if correction == 1 else "white"))
         self.btn3.config(bg=("green" if correction == 2 else "white"))
@@ -234,6 +234,7 @@ class GameWindow:
             "answer": btnNumber
         }
         self.send_to_server(object)
+        self.disableButtons()
 
     def send_to_server(self, obj):
         self.clientSocket.send(bytes(json.dumps(obj) + "\0", "utf-8"))
@@ -250,6 +251,7 @@ class GameWindow:
                 strings = recv_buffer.split('\0')
                 for s in strings[:-1]:
                     s = json.loads(s)
+                    print(s)
                     command = s["cmd"]
 
                     if command == "start":
