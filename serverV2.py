@@ -67,7 +67,7 @@ class Server:
     # manage a client
     def manage_client(self, client):
         while client.username is None:
-            obj = client.recv(self.BUFSIZ).decode()
+            obj = client.socket.recv(self.BUFSIZ).decode()
             if obj["command"] == "username":
                 client.username = obj["username"]
 
@@ -77,6 +77,10 @@ class Server:
     def start_managing_clients(self):
         for c in self.clients:
             self.manage_client(c)
+        obj = {
+            "cmd": "start"
+        }
+        self.broadcast(obj)
 
 
 class ConnectionWindow:
@@ -86,6 +90,7 @@ class ConnectionWindow:
         self.window.geometry("500x300")
         self.window.config(bg='#4181C0')
         self.window.resizable(False, False)
+        self.opened = True
 
         self.ipList = tk.Listbox(self.window, bg="#F2F2F2", borderwidth=3, highlightthickness=0, font="30")
         self.ipList.grid(row=1, padx=(100, 100))
@@ -98,20 +103,30 @@ class ConnectionWindow:
         self.server = Server()
         self.server.socket.listen(10)
         threading._start_new_thread(self.server.accept_clients, ())
+        self.update_ip_list()
         tk.mainloop()
 
     def start_server(self):
         try:
+            self.opened = False
             self.window.destroy()
             ServerWindow(self.server)
         except:
             self.window.destroy()
 
-    def add_client_to_list(self, client):
-        self.server.clients.append(client)
-        lbl = self.ipList.cget("text")
-        self.ipList.config(text=str(lbl) + str(client.ip) + "\n")
+    def update_ip_list(self):
+        self.ipList.delete(0, tk.END)
+        if len(self.server.clients) > 0:
+            for c in self.server.clients:
+                self.ipList.insert(0, str(c.ip) + "\n")
+                print(c.ip)
+        else:
+            print("no clients")
         self.ipList.pack()
+
+        if self.opened:
+            self.window.after(500, self.update_ip_list)
+
 
 class ServerWindow:
     def __init__(self, server):
@@ -123,7 +138,8 @@ class ServerWindow:
         self.window.config(bg='#4181C0')
         self.window.resizable(False, False)
 
-        self.server.start_managing_clients()
+        #self.server.start_managing_clients()
+
 
 if __name__ == "__main__":
     c = ConnectionWindow()

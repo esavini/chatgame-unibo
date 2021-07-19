@@ -254,6 +254,8 @@ class GameWindow:
                     s = json.loads(s)
                     command = s["cmd"]
 
+                    if command == "start":
+                        self.sendUsernameToServer(self.player.username)
                     if command == "question":
                         self.setQuestion(s)
                     if command == "receiveMsg":
