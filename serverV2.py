@@ -114,18 +114,24 @@ class ConnectionWindow:
         except:
             self.window.destroy()
 
-    def update_ip_list(self):
-        self.ipList.delete(0, tk.END)
-        if len(self.server.clients) > 0:
-            for c in self.server.clients:
-                self.ipList.insert(0, str(c.ip) + "\n")
-                print(c.ip)
-        else:
-            print("no clients")
+    def addClientToList(self, client_ip):
+        lbl = self.ipList.cget("text")
+        self.ipList.config(text=str(lbl) + str(client_ip) + "\n")
         self.ipList.pack()
 
+    def update_ip_list(self):
         if self.opened:
-            self.window.after(500, self.update_ip_list)
+            self.ipList.delete(0, tk.END)
+            if len(self.server.clients) > 0:
+                for c in self.server.clients:
+                    self.ipList.insert(0, str(c.ip) + "\n")
+                    print(c.ip)
+            else:
+                print("no clients")
+            self.ipList.pack()
+
+            if self.opened:
+                self.window.after(500, self.update_ip_list)
 
 
 class ServerWindow:
