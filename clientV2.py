@@ -145,7 +145,7 @@ class GameWindow:
 
     def refreshButtons(self):
         global correction
-        # print(correction)
+        print("c:"+str(correction))
         self.btn1.config(bg=("green" if correction == 0 else "white"))
         self.btn2.config(bg=("green" if correction == 1 else "white"))
         self.btn3.config(bg=("green" if correction == 2 else "white"))
@@ -154,6 +154,7 @@ class GameWindow:
 
     def updateQuestion(self):
         global lastQuestion
+        global correction
 
         if lastQuestion is not None:
             self.enableButtons()
@@ -171,6 +172,7 @@ class GameWindow:
             self.updateTime()
             self.updateWinner()
             lastQuestion = None
+            correction = None
 
         self.finestra.after(250, self.updateQuestion)
 
@@ -383,11 +385,6 @@ class Player:
 def startGame(username, client, bufferSize):
     GameWindow(username, client, bufferSize)
 
-
-msg = {
-    "cmd": "winner",
-    "username": "gesu cristo"
-}
 
 if __name__ == "__main__":
     c = ConnectionWindow()

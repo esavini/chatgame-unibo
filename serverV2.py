@@ -53,6 +53,8 @@ def game_start():
 
     close_question(1)
 
+    winner()
+
 
 started = False
 
@@ -138,6 +140,12 @@ def close_question(correct_answer):
 
     update_leaderboard()
 
+
+def winner():
+    broadcast({
+        "cmd": "winner",
+        "username": [player.username for player in sorted(list(players.values()), key=lambda a: a.points)][0]
+    })
 
 def send_msg(client_addr, msg):
     broadcast({
