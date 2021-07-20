@@ -228,7 +228,7 @@ if __name__ == '__main__':
     window = tk.Tk()
     window.title("Server")
     window.geometry("400x500")
-    window.config(bg="slateBlue")
+    window.config(bg="#4181C0")
     window.resizable(False, False)
 
     gioco_iniziato = tk.BooleanVar(False)
@@ -236,19 +236,19 @@ if __name__ == '__main__':
     client_counter = tk.IntVar(0)
 
     # start button
-    btnStart = tk.Button(window, bg="#1e9856", text="START GAME", font=("Elephant", 30, "bold"),
+    btnStart = tk.Button(window, bg="#4181C0", text="START GAME", font=("Elephant", 30, "bold"),
                          command=lambda: start_button())
     btnStart.place(x=25, y=270, width=350, height=80)
 
     # list
-    label_counter = tk.Label(window, text="", font=("forte", 14, "bold"), bg="medium slate blue", relief="sunken")
+    label_counter = tk.Label(window, text="", font=("forte", 14, "bold"), bg="#4181C0", relief="sunken")
     label_counter.place(x=20, y=20, width=360, height=200)
 
     # server ip
-    label_ip = tk.Label(window, text="Indirizzo IP:", font=("Perpetua", 25, "bold"), bg="medium slate blue",
+    label_ip = tk.Label(window, text="Indirizzo IP:", font=("Perpetua", 25, "bold"), bg="#4181C0",
                         relief="groove")
     label_ip.place(x=50, y=360, width=300, height=50)
-    label_ip = tk.Label(window, text=str(get_ip()), font=("Perpetua", 30, "bold"), bg="medium slate blue",
+    label_ip = tk.Label(window, text=str(get_ip()), font=("Perpetua", 30, "bold"), bg="#4181C0",
                         relief="groove")
     label_ip.place(x=50, y=420, width=300, height=70)
 

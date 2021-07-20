@@ -76,7 +76,7 @@ class GameWindow:
         self.labelQuestion = tk.Label(self.finestra, text="...in attesa di una domanda...",
                                       font=("Perpetua", 30, "bold"),
                                       bg="medium slate blue", relief="groove")
-        self.labelQuestion.place(x=100, y=250, width=800, height=100)
+        self.labelQuestion.place(x=20, y=250, width=880, height=100)
 
         # label leaderboard
         self.labelLeaderboard = tk.Label(self.finestra, bg="#4181C0", borderwidth=20, text="Leaderboard:",
@@ -233,6 +233,9 @@ class GameWindow:
             "cmd": "answer",
             "answer": btnNumber
         }
+        self.btn1.config(bg="white")
+        self.btn2.config(bg="white")
+        self.btn3.config(bg="white")
         self.send_to_server(object)
         self.disableButtons()
 
