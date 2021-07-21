@@ -1,2 +1,4 @@
-# Chi vuole essere milionario? UniBo Edition
+# Chat Game
 ## Giacomo Montali, Edoardo Savini
+
+Progetto universitario.
