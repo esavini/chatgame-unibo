@@ -5,51 +5,20 @@ Created on Mon Jun 14 21:06:58 2021
 @author: Monta
 """
 
-import tkinter as tk
-from tkinter import messagebox
-from threading import Thread
-import time
-import random
+import json
 import socket
+import struct
+import time
+import tkinter as tk
 from socket import AF_INET, socket, SOCK_STREAM
+from threading import Thread
 
-def sendUsernameToServer(nickname):
-    msg = {
-        "cmd": "join",
-        "msg": nickname
-    }
-    client_socket.send(bytes(msg), "utf8")
-
-def sendMessageToServer(msg):
-    msg = {
-        "cmd": "sendMsg",
-        "msg": msg
-    }
-    client_socket.send(bytes(msg), "utf8")
-
-def sendAnswerToServer(idAnswer):
-    msg = {
-        "cmd": "answer",
-        "answer": idAnswer
-    }
-    client_socket.send(bytes(msg), "utf8")
-
-def receive():
-    """ gestione ricezione dei messaggi."""
-    while True:
-        try:
-            msg = client_socket.recv(BUFSIZ).decode("utf8")
-            command = msg["cmd"]
-
-            if command == "question":
-                setQuestion(msg)
-            if command == "receiveMsg":
-                addExternalChatMessage(msg)
-            if command == "leaderboard":
-                updatePoints(msg)
-
-        except OSError:
-            break
+BUFFERSIZE = 4096
+listMessagesInQueue = []
+leaderboard = []
+lastQuestion = None
+correction = None
+winner = ""
 
 
 class Timer:
@@ -57,6 +26,7 @@ class Timer:
         self.minutes = min
         self.seconds = sec
         self.Thread = Thread(target=self.decreaseTime)
+        self.time = ""
         self.termina = False
 
     def start(self):
@@ -67,14 +37,14 @@ class Timer:
 
     def decreaseTime(self):
         while (self.seconds != 0 or self.minutes != 0) and self.termina == False:
-            timeLeft.set(self.getTime())
+            self.time = self.getTime()
             time.sleep(1)
             if self.seconds > 0:
                 self.seconds -= 1
             else:
                 self.minutes -= 1
                 self.seconds = 59
-        timeLeft.set(self.getTime())
+        self.time = self.getTime()
         self.termina = True
         return ""
 
@@ -83,8 +53,12 @@ class Timer:
 
 
 class GameWindow:
-    def __init__(self, username):
+    def __init__(self, username, clientSocket, bufferSize):
         self.player = Player(username)
+        self.clientSocket = clientSocket
+        self.bufferSize = bufferSize
+
+        self.finestra = tk.Tk()
         self.finestra.title("CHATGAME")
         self.finestra.geometry("1300x800")
         self.finestra.config(bg="#4181C0")
@@ -93,49 +67,62 @@ class GameWindow:
         self.timeLeft = tk.StringVar()
 
         # label timer
-        self.labelTimer = tk.Label(finestra, textvariable=timeLeft, font=("Perpetua", "40", "bold"), bg="#4181C0",
+        self.labelTimer = tk.Label(self.finestra, textvariable=self.timeLeft, font=("Perpetua", "40", "bold"),
+                                   bg="#4181C0",
                                    borderwidth=2, relief="solid")
         self.labelTimer.place(x=50, y=50, height=50, width=160)
 
         # label question
-        self.labelQuestion = tk.Label(finestra, text="in attesa di una domanda...", font=("Perpetua", 30, "bold"),
+        self.labelQuestion = tk.Label(self.finestra, text="...in attesa di una domanda...",
+                                      font=("Perpetua", 30, "bold"),
                                       bg="medium slate blue", relief="groove")
-        self.labelQuestion.place(x=100, y=250, width=800, height=100)
+        self.labelQuestion.place(x=20, y=250, width=880, height=100)
 
         # label leaderboard
-        self.labelLeaderboard = tk.Label(finestra, bg="#4181C0", borderwidth=20, text="Leaderboard:",
+        self.labelLeaderboard = tk.Label(self.finestra, bg="#4181C0", borderwidth=20, text="Leaderboard:",
                                          font=("Perpetua", 18, "bold"))
         self.labelLeaderboard.place(x=1000, y=20, height=50, width=300)
 
-        # leaderboard
-        self.lstLeaderboard = tk.Listbox(finestra, bg="#4181C0", font=("Perpetua", 15, "bold"))
-        self.lstLeaderboard.place(x=1000, y=70, width=300, height=230)
-        updatePoints(punteggio)
-
         # listbox message
-        self.messageList = tk.Listbox(finestra, bg="#F2F2F2", borderwidth=0, highlightthickness=0, font="30")
+        self.messageList = tk.Listbox(self.finestra, bg="#F2F2F2", borderwidth=0, highlightthickness=0, font="30")
         self.messageList.grid(row=1, padx=(100, 100))
         self.messageList.place(x=1000, y=300, height=440, width=300)
 
         # textbox sendMessage
-        self.msgTextBox = tk.Entry(finestra, borderwidth=0, font="30")
+        self.msgTextBox = tk.Entry(self.finestra, borderwidth=0, font="30")
         self.msgTextBox.place(x=1000, y=740, height=50, width=250)
 
+        # leaderboard
+        self.lstLeaderboard = tk.Listbox(self.finestra, bg="#4181C0", font=("Perpetua", 15, "bold"))
+        self.lstLeaderboard.place(x=1000, y=70, width=300, height=230)
+
         # button sendMessage
-        self.sendMsgButton = tk.Button(finestra, text="SEND", borderwidth=0, font="'bold'",
-                                       command=lambda: addChatMessage(msgTextBox.get()))
+        self.sendMsgButton = tk.Button(self.finestra, text="SEND", borderwidth=0, font="'bold'",
+                                       command=lambda: self.sendMessageToServer(self.msgTextBox.get()))
         self.sendMsgButton.place(x=1250, y=740, height=50, width=50)
 
+        global correction
         # answer buttons
-        self.btn1 = tk.Button(finestra, bg="#1e9856", text="RISPOSTA 1", font=("Elephant", 30, "bold"))
+        self.btn1 = tk.Button(self.finestra, bg="white", text="RISPOSTA 1", font=("Elephant", 30, "bold"),
+                              command=lambda: self.sendAnswerToServer(0))
         self.btn1.place(x=50, y=570, width=400, height=80)
 
-        self.btn2 = tk.Button(finestra, bg="#1e9856", text="RISPOSTA 2", font=("Elephant", 30, "bold"))
+        self.btn2 = tk.Button(self.finestra, bg="white", text="RISPOSTA 2", font=("Elephant", 30, "bold"),
+                              command=lambda: self.sendAnswerToServer(1))
         self.btn2.place(x=550, y=570, width=400, height=80)
 
-        self.btn3 = tk.Button(finestra, bg="#1e9856", text="RISPOSTA 3", font=("Elephant", 30, "bold"))
+        self.btn3 = tk.Button(self.finestra, bg="white", text="RISPOSTA 3", font=("Elephant", 30, "bold"),
+                              command=lambda: self.sendAnswerToServer(2))
         self.btn3.place(x=300, y=680, width=400, height=80)
-        disableButtons()
+
+        self.disableButtons()
+
+        t = Thread(target=self.receive)
+        t.start()
+        self.updateMessageList()
+        self.update_leaderboard()
+        self.updateQuestion()
+        self.refreshButtons()
 
     def disableButtons(self):
         self.btn1['state'] = tk.DISABLED
@@ -147,298 +134,257 @@ class GameWindow:
         self.btn2['state'] = tk.NORMAL
         self.btn3['state'] = tk.NORMAL
 
-    def setTimeLeft(self, time):
-        self.timeLeft = time
-
-    def getTimeLeft(self):
-        return self.timeLeft
-
     def setQuestion(self, question):
-        self.labelQuestion.config(text=question["question"])
+        global lastQuestion
+        lastQuestion = question
 
-        self.btn1.config(text=question["answers"][0])
-        self.btn2.config(text=question["answers"][1])
-        self.btn3.config(text=question["answers"][2])
+    def updateCorrection(self, corr):
+        global correction
+        print(corr)
+        correction = corr["answer"]
 
-        seconds = int(question["time"])
-        minutes = int(seconds / 60)
-        seconds = int(seconds % 60)
-        self.timer = Timer(minutes, seconds)
-        self.timer.start()
+    def refreshButtons(self):
+        global correction
+        print("c:"+str(correction))
+        self.btn1.config(bg=("green" if correction == 0 else "white"))
+        self.btn2.config(bg=("green" if correction == 1 else "white"))
+        self.btn3.config(bg=("green" if correction == 2 else "white"))
+
+        self.finestra.after(250, self.refreshButtons)
+
+    def updateQuestion(self):
+        global lastQuestion
+        global correction
+
+        if lastQuestion is not None:
+            self.enableButtons()
+
+            self.labelQuestion.config(text=lastQuestion["question"])
+            self.btn1.config(bg="white", text=lastQuestion["answers"][0])
+            self.btn2.config(bg="white", text=lastQuestion["answers"][1])
+            self.btn3.config(bg="white", text=lastQuestion["answers"][2])
+
+            seconds = int(lastQuestion["time"])
+            minutes = int(seconds / 60)
+            seconds = int(seconds % 60)
+            self.timer = Timer(minutes, seconds)
+            self.timer.start()
+            self.updateTime()
+            self.updateWinner()
+            lastQuestion = None
+            correction = None
+
+        self.finestra.after(250, self.updateQuestion)
+
+    def updateTime(self):
+        self.timeLeft.set(self.timer.time)
+        if not self.timer.time == "00:00":
+            self.finestra.after(250, self.updateTime)
+
+    def updateMessageList(self):
+        global listMessagesInQueue
+        if len(listMessagesInQueue) > 0:
+            for message in listMessagesInQueue:
+                self.messageList.insert("end", message)
+            listMessagesInQueue = []
+            self.messageList.update()
+        self.finestra.after(500, self.updateMessageList)
+
+    def update_leaderboard(self):
+        global leaderboard
+
+        self.lstLeaderboard.delete(0, tk.END)
+
+        for player in leaderboard:
+            self.lstLeaderboard.insert("end", player)
+
+        self.lstLeaderboard.update()
+        self.finestra.after(500, self.update_leaderboard)
 
     def updatePoints(self, punteggi):
-        self.lstLeaderboard.delete(first=0, last=tk.END)
-        counter = 1
+        global leaderboard
+        leaderboard.clear()
 
-        if punteggi["you"] > self.player.points:
-            self.player.points = punteggi["you"]
-            addChatMessage("correct answer")
-        else:
-            addChatMessage("wrong answer")
+        for p in punteggi["leaderboard"]:
+            leaderboard.insert(len(leaderboard), p["name"] + ": " + str(p["points"]))
 
-        for player in punteggi:
-            name = player["name"]
-            point = player["points"]
-
-            self.lstLeaderboard.insert(counter, name + " : " + str(point))
-            counter += 1
-
-    def addChatMessage(self, msg):
-        if msg == "":
-            return
-
-        self.messageList.insert(messageList.size() + 1, "ME: " + msg)
-        self.finestra.update_idletasks()
-        self.msgTextBox.delete(0, tk.END)
-        sendMessageToServer(msg)
+    def addChatMessage(self, string):
+        self.messageList.insert("end", string)
 
     def addExternalChatMessage(self, messageObject):
-        self.messageList.insert(messageList.size() + 1, messaggio["sender"] + ": " + messaggio["msg"])
-        self.finestra.update_idletasks()
+        msg = messageObject["sender"] + ": " + messageObject["msg"]
+        global listMessagesInQueue
+        listMessagesInQueue.insert(len(listMessagesInQueue), msg)
+
+    def sendUsernameToServer(self, nickname):
+        object = {
+            "cmd": "join",
+            "msg": nickname
+        }
+        self.send_to_server(object)
+
+    def sendMessageToServer(self, msg):
+        object = {
+            "cmd": "sendMsg",
+            "msg": msg
+        }
+        self.send_to_server(object)
+
+    def sendAnswerToServer(self, btnNumber):
+        object = {
+            "cmd": "answer",
+            "answer": btnNumber
+        }
+        self.btn1.config(bg="white")
+        self.btn2.config(bg="white")
+        self.btn3.config(bg="white")
+        self.send_to_server(object)
+        self.disableButtons()
+
+    def send_to_server(self, obj):
+        self.clientSocket.send(bytes(json.dumps(obj) + "\0", "utf-8"))
+
+    def receive(self):
+        """ gestione ricezione dei messaggi."""
+
+        recv_buffer = ""
+
+        while True:
+            try:
+                data = self.clientSocket.recv(128)
+                recv_buffer = recv_buffer + data.decode("utf-8")
+                strings = recv_buffer.split('\0')
+                for s in strings[:-1]:
+                    s = json.loads(s)
+                    print(s)
+                    command = s["cmd"]
+
+                    if command == "start":
+                        self.sendUsernameToServer(self.player.username)
+                    if command == "question":
+                        self.setQuestion(s)
+                    if command == "receiveMsg":
+                        self.addExternalChatMessage(s)
+                    if command == "leaderboard":
+                        self.updatePoints(s)
+                    if command == "winner":
+                        global winner
+                        winner = s["username"]
+                    if command == "correction":
+                        self.updateCorrection(s)
+
+                recv_buffer = strings[-1]
+
+            except OSError:
+                break
+
+    def on_closing(self, s):
+        try:
+            self.clientSocket.close()
+            self.finestra.destroy()
+        except:
+            self.finestra.destroy()
+
+    def updateWinner(self):
+        global winner
+        if winner != "":
+            stringa = "Winner: " + winner
+            self.finestra.title("chatgame")
+            self.finestra.geometry("700x200")
+            self.finestra.config(bg='#4181C0')
+            self.finestra.resizable(False, False)
+            self.label = tk.Label(self.finestra, relief="solid", borderwidth=1, fg="black",
+                                  font=("Perpetua", "25", "bold"), text=stringa)
+            self.label.place(x=50, y=75, height=50, width=500)
+            self.closeBtn = tk.Button(self.finestra, text="CLOSE", bg="#7AB6FF", font=("Perpetua", "13", "bold"),
+                                      command=self.close)
+            self.closeBtn.place(x=550, y=75, width=70, height=50)
+            self.labelTimer.destroy()
+        else:
+            self.finestra.after(500, self.updateWinner)
+
+    def close(self):
+        try:
+            self.clientSocket.close()
+            self.finestra.destroy()
+        except:
+            self.finestra.destroy()
+
+
+class ConnectionWindow:
+    def __init__(self):
+        self.finestra = tk.Tk()
+        self.finestra.title("Client")
+        self.finestra.geometry("500x300")
+        self.finestra.config(bg='#4181C0')
+        self.finestra.resizable(False, False)
+
+        # title
+        self.title = tk.Label(self.finestra, text="CHATGAME", bg="#7AB6FF", relief="groove", font=("chiller", 50))
+        self.title.place(x=0, y=0, width=500)
+
+        # name textbox
+        self.txtName = tk.Entry(self.finestra, bg="#F2F2F2", font="30")
+        self.txtName.place(x=50, y=200, width=340, height=40)
+
+        # description
+        self.instruction = tk.Label(self.finestra, text="INSERISCI IL TUO USERNAME", font=("courier"), relief="sunken")
+        self.instruction.place(x=50, y=140, width=400)
+
+        # avvio button
+        self.btnNext = tk.Button(self.finestra, text="SELECT", bg="#7AB6FF", font=("courier"), command=self.ipMenu)
+        self.btnNext.place(x=390, y=200, width=60, height=40)
+
+        self.finestra.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.bufferSize = BUFFERSIZE
+        self.clientSocket = socket(AF_INET, SOCK_STREAM)
+
+        tk.mainloop()
+
+    def ipMenu(self):
+        if 0 < len(self.txtName.get()) < 8:
+            self.username = self.txtName.get()
+
+            self.instruction.config(text="INSERISCI IP SERVER")
+            self.txtName.delete(0, tk.END)
+            self.btnNext.config(text="START", command=self.destroyMenu)
+        else:
+            self.instruction.config(text="USERNAME NON VALIDO, RIPROVA")
+
+    def ipCheck(self):
+        try:
+            IP = str(self.txtName.get())
+            PORT = 53000
+            ADDR = (IP, PORT)
+            self.clientSocket.connect(ADDR)
+            return True
+        except:
+            return False
+
+    def destroyMenu(self):
+        if self.ipCheck():
+            self.finestra.destroy()
+            startGame(self.username, self.clientSocket, self.bufferSize)
+        else:
+            self.instruction.config(text="IP NON VALIDO, RIPROVA")
+
+    def on_closing(self):
+        try:
+            self.clientSocket.close()
+            self.finestra.destroy()
+        except:
+            self.finestra.destroy()
 
 
 class Player:
     def __init__(self, name):
         self.username = name
         self.points = 0
-        self.rightAnswer = 0
-
-def updatePoints(punteggi):
-    lstLeaderboard.delete(first=0, last=tk.END)
-    counter = 1
-
-    if punteggi["you"] > p.points:
-        p.points = punteggi["you"]
-        addChatMessage("correct answer")
-    else:
-        addChatMessage("wrong answer")
-
-    for player in punteggi:
-        name = player["name"]
-        point = player["points"]
-
-        lstLeaderboard.insert(counter, name + " : " + str(point))
-        counter += 1
-
-def addChatMessage(msg):
-    if msg == "":
-        return
-
-    messageList.insert(messageList.size()+1, "ME: " + msg)
-    finestra.update_idletasks()
-    msgTextBox.delete(0, tk.END)
-    sendMessageToServer(msg)
-
-def addExternalChatMessage(messageObject):
-    messageList.insert(messageList.size()+1, messaggio["sender"] + ": " + messaggio["msg"])
-    finestra.update_idletasks()
-    msgTextBox.delete(0, tk.END)
-
-global t
-def setQuestion(question):
-    label_domanda.config(text=question["question"])
-
-    btn1.config(text=question["answers"][0])
-    btn2.config(text=question["answers"][1])
-    btn3.config(text=question["answers"][2])
-
-    seconds = int(question["time"])
-    minutes = int(seconds / 60)
-    seconds = int(seconds % 60)
-    t = Timer(minutes, seconds)
-    t.start()
 
 
-punteggio = [
-    {
-        "name": "ruspa",
-        "points": 5
-    },
-{
-        "name": "eskere",
-        "points": 54
-    }
-]
-domanda = {
-    "cmd": "question",
-    "question": "di che colore è il cavallo bianco di napoleone?",
-    "answers": [
-        "rosso",
-        "viola",
-        "arancione",
-        "verde"
-    ],
-    "time": 10
-}
-messaggio = {
-    "cmd": "receiveMsg",
-    "msg": "TVOIIAAA",
-    "sender": "Azel con la mamma troia"
-}
+def startGame(username, client, bufferSize):
+    GameWindow(username, client, bufferSize)
 
 
-
-def game_start():
-    #GRAFICA
-    finestra.title("CHATGAME")
-    finestra.geometry("1300x800")
-    finestra.config(bg="#4181C0")
-
-    global timeLeft
-    timeLeft = tk.StringVar()
-
-    labelTimer = tk.Label(finestra, textvariable=timeLeft, font=("Perpetua", "40", "bold"), bg="#4181C0", borderwidth=2, relief="solid")
-    labelTimer.place(x=50, y=50, height=50, width=160)
-
-    # label domanda
-    global label_domanda
-    label_domanda = tk.Label(finestra, text="in attesa di una domanda...", font=("Perpetua", 30, "bold"), bg="medium slate blue", relief="groove")
-    label_domanda.place(x=100, y=250, width=800, height=100)
-
-    # label leaderboard
-    lblLeaderboard = tk.Label(finestra, bg="#4181C0", borderwidth=20, text="Leaderboard:", font=("Perpetua", 18, "bold"))
-    lblLeaderboard.place(x=1000, y=20, height=50, width=300)
-
-    #leaderboard
-    global lstLeaderboard
-    lstLeaderboard = tk.Listbox(finestra, bg="#4181C0", font=("Perpetua", 15, "bold"))
-    lstLeaderboard.place(x=1000, y=70, width=300, height=230)
-    updatePoints(punteggio)
-
-    # listbox messaggi
-    global messageList
-    messageList = tk.Listbox(finestra, bg="#F2F2F2", borderwidth=0, highlightthickness=0, font="30")
-    messageList.grid(row=1, padx=(100, 100))
-    messageList.place(x=1000, y=300, height=440, width=300)
-
-    # textbox sendMessage
-    global msgTextBox
-    msgTextBox = tk.Entry(finestra, borderwidth=0, font="30")
-    msgTextBox.place(x=1000, y=740, height=50, width=250)
-
-    # button sendMessage
-    messageCounter = 0
-    sendMsgButton = tk.Button(finestra, text="SEND", borderwidth=0, font="'bold'", command=lambda: addChatMessage(msgTextBox.get()))
-    sendMsgButton.place(x=1250, y=740, height=50, width=50)
-
-    global btn1, btn2, btn3
-    btn1 = tk.Button(finestra, bg="#1e9856", text="RISPOSTA 1", font=("Elephant", 30, "bold"))
-    btn1.place(x=50, y=570, width=400, height=80)
-
-    btn2 = tk.Button(finestra, bg="#1e9856", text="RISPOSTA 2", font=("Elephant", 30, "bold"))
-    btn2.place(x=550, y=570, width=400, height=80)
-
-    btn3 = tk.Button(finestra, bg="#1e9856", text="RISPOSTA 3", font=("Elephant", 30, "bold"))
-    btn3.place(x=300, y=680, width=400, height=80)
-
-    disableButtons()
-    setQuestion(domanda)
-    addExternalChatMessage(messaggio)
-
-def disableButtons():
-    btn1['state'] = tk.DISABLED
-    btn2['state'] = tk.DISABLED
-    btn3['state'] = tk.DISABLED
-def enableButtons():
-    btn1['state'] = tk.NORMAL
-    btn2['state'] = tk.NORMAL
-    btn3['state'] = tk.NORMAL
-
-
-def chiusura():
-    """apparizione messagebox e gestione della chiusura"""
-    tk.messagebox.showinfo("peccato!", scelte[3])
-    on_closing()
-
-def on_closing(event=None):
-    """chiusura della connessione con il singolo client e distruzione della finestra"""
-    try:
-        client_socket.send(bytes("quit", "utf8"))
-        client_socket.close()
-        finestra.destroy()
-    except:
-        finestra.destroy()
-
-def avvio():
-    '''funzione che si occupa di gestire la grafica dell'interfaccia d'avvio e
-        della gestione della connessione con il server'''
-    try:
-        print(entry_host.get())
-        HOST = str(entry_host.get())
-        PORT = 53000
-        ADDR = (HOST, PORT)
-        client_socket.connect(ADDR)
-
-        entry_host.destroy()
-        button_host.destroy()
-        istruzioni.destroy()
-        titolo.destroy()
-        receive_thread = Thread(target=receive)
-        receive_thread.start()
-    except:
-        pass
-
-def ipCheck():
-    try:
-        IP = str(entry_host.get())
-        PORT = 53000
-        ADDR = (IP, PORT)
-        client_socket.connect(ADDR)
-        return True
-    except:
-        return False
-
-def destroyMenu():
-    if ipCheck():
-        titolo.destroy()
-        istruzioni.destroy()
-        entry_host.destroy()
-        button_host.destroy()
-
-        game_start()
-    else:
-        istruzioni.config(text="IP NON VALIDO, RIPROVA")
-
-def gotoIpMenu():
-    if 0 < len(entry_host.get()) < 8:
-        global p
-        p = Player(entry_host.get())
-        sendUsernameToServer(p.username)
-
-        istruzioni.config(text="INSERISCI IP SERVER")
-        entry_host.delete(0, tk.END)
-        button_host.config(text="START", command=destroyMenu)
-    else:
-        istruzioni.config(text="USERNAME NON VALIDO, RIPROVA")
-
-if __name__ == '__main__':
-    # grafica
-    finestra = tk.Tk()
-    finestra.title("Client")
-    finestra.geometry("500x300")
-    finestra.config(bg='#4181C0')
-    finestra.resizable(False, False)
-
-    # title
-    titolo = tk.Label(finestra, text="CHATGAME", bg="#7AB6FF", relief="groove", font=("chiller", 50))
-    titolo.place(x=0, y=0, width=500)
-
-    # name textbox
-    entry_host = tk.Entry(finestra, bg="#F2F2F2", font="30")
-    entry_host.place(x=50, y=200, width=340, height=40)
-
-    # description
-    istruzioni = tk.Label(finestra, text="INSERISCI IL TUO USERNAME", font=("courier"), relief="sunken")
-    istruzioni.place(x=50, y=140, width=400)
-
-    # avvio button
-    button_host = tk.Button(finestra, text="SELECT", bg="#7AB6FF", font=("courier"), command=gotoIpMenu)
-    button_host.place(x=390, y=200, width=60, height=40)
-
-    finestra.protocol("WM_DELETE_WINDOW", on_closing)
-
-    BUFSIZ = 1024
-    client_socket = socket(AF_INET, SOCK_STREAM)
-
-    # avvia l'esecuzione della Finestra
-    tk.mainloop()
+if __name__ == "__main__":
+    c = ConnectionWindow()
